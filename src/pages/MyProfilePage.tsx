@@ -19,6 +19,7 @@ import { useMyProfile, useProfileMutations } from '../features/profile/useMyProf
 import { mapQuery } from '../features/profile/maps';
 import { WorkplaceMap } from '../features/profile/WorkplaceMap';
 import { ShareDialog } from '../features/profile/ShareDialog';
+import { ShowcasesEditor } from '../features/profile/ShowcasesEditor';
 import { LINK_PREFIX, VALUE_PLACEHOLDER, composeUrl, hasPrefix, toHandle } from '../features/profile/linkComposer';
 import { COUNTRIES } from '../features/profile/countries';
 
@@ -575,6 +576,8 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
         </button>
         <p className="mt-2 text-xs text-slate-400">{t('editor.certHint')}</p>
       </section>
+
+      <ShowcasesEditor />
 
       <section>
         <h2 className="text-lg font-semibold text-slate-900 mb-3">{t('editor.links')}</h2>
