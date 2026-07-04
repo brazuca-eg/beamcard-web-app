@@ -58,6 +58,7 @@ function Card({ profile }: { profile: ProfileResponse }) {
   const links = [...profile.links].sort((a, b) => a.position - b.position);
   const name = profile.display_name ?? `@${profile.username}`;
   const workplaces = profile.affiliations ?? [];
+  const activities = profile.activities ?? [];
   const awards = [...(profile.awards ?? [])].sort((a, b) => a.position - b.position);
 
   return (
@@ -103,6 +104,24 @@ function Card({ profile }: { profile: ProfileResponse }) {
               </li>
             ))}
           </ul>
+        )}
+
+        {activities.length > 0 && (
+          <section className="mt-8 text-left">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              {t('publicCard.activities')}
+            </h2>
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {activities.map((a, i) => (
+                <li
+                  key={i}
+                  className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm font-medium text-slate-700"
+                >
+                  {a}
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
 
         {awards.length > 0 && <Awards awards={awards} name={name} />}

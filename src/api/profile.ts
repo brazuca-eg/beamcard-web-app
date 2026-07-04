@@ -56,6 +56,8 @@ export interface ProfileResponse {
   bio?: string;
   location?: Location;
   affiliations?: Affiliation[];
+  /** Main directions of professional activity — a plain list of strings. */
+  activities?: string[];
   avatar_url?: string;
   created_at: string;
   updated_at: string;
@@ -71,6 +73,7 @@ export interface UpdateProfileRequest {
   bio?: string;
   location?: Location;
   affiliations?: Affiliation[];
+  activities?: string[];
 }
 
 /**
