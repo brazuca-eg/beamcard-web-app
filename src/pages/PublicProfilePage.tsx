@@ -8,7 +8,7 @@ import { publicVcardUrl, type Affiliation, type AwardResponse, type ProfileRespo
 import { usePublicProfile } from '../features/profile/usePublicProfile';
 import { mapQuery } from '../features/profile/maps';
 import { WorkplaceMap } from '../features/profile/WorkplaceMap';
-import { getPublicShowcases } from '../features/profile/showcases';
+import { getPublicShowcases, type Showcase } from '../features/profile/showcases';
 
 /**
  * Public card at /@username (e.g. /@alice). Anonymous — no auth. The route
@@ -316,14 +316,12 @@ function ProfileShowcases({ username }: { username: string }) {
   );
 }
 
-type PublicShowcase = { title?: string; intro?: string; steps: { image_url: string; description?: string }[] };
-
 /**
  * One case study: a titled card whose steps read top-to-bottom as a connected
  * timeline (numbered nodes + a spine line). First/last steps carry Before/Result
  * badges; tapping any photo opens a full-screen viewer that pages through the steps.
  */
-function ShowcaseCard({ showcase }: { showcase: PublicShowcase }) {
+function ShowcaseCard({ showcase }: { showcase: Showcase }) {
   const { t } = useTranslation();
   const steps = showcase.steps ?? [];
   const title = showcase.title ?? t('publicCard.showcases');
