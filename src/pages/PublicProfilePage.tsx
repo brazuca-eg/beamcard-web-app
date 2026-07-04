@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
 import { Navigate, useParams } from 'react-router-dom';
 import { ApiError } from '../api/client';
 import { problemOf } from '../api/problem';
@@ -7,6 +8,7 @@ import { publicVcardUrl, type Affiliation, type AwardResponse, type ProfileRespo
 import { usePublicProfile } from '../features/profile/usePublicProfile';
 import { mapQuery } from '../features/profile/maps';
 import { WorkplaceMap } from '../features/profile/WorkplaceMap';
+import { getPublicShowcases } from '../features/profile/showcases';
 
 /**
  * Public card at /@username (e.g. /@alice). Anonymous — no auth. The route
@@ -125,6 +127,8 @@ function Card({ profile }: { profile: ProfileResponse }) {
         )}
 
         {awards.length > 0 && <Awards awards={awards} name={name} />}
+
+        <ProfileShowcases username={profile.username} />
 
         {workplaces.length > 0 && (
           <section className="mt-8 text-left">
@@ -286,6 +290,193 @@ function Awards({ awards, name }: { awards: AwardResponse[]; name: string }) {
         </div>
       )}
     </section>
+  );
+}
+
+/** Public before→after case studies: each showcase renders as a numbered photo timeline. */
+function ProfileShowcases({ username }: { username: string }) {
+  const { t } = useTranslation();
+  const { data } = useQuery({
+    queryKey: ['showcases', 'public', username],
+    queryFn: () => getPublicShowcases(username),
+  });
+  const showcases = data ?? [];
+  if (showcases.length === 0) return null;
+
+  return (
+    <section className="mt-8 text-left">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t('publicCard.showcases')}</h2>
+      <p className="mt-0.5 text-sm text-slate-500">{t('publicCard.showcasesSubtitle')}</p>
+      <div className="mt-4 space-y-5">
+        {showcases.map((showcase, i) => (
+          <ShowcaseCard key={i} showcase={showcase} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+type PublicShowcase = { title?: string; intro?: string; steps: { image_url: string; description?: string }[] };
+
+/**
+ * One case study: a titled card whose steps read top-to-bottom as a connected
+ * timeline (numbered nodes + a spine line). First/last steps carry Before/Result
+ * badges; tapping any photo opens a full-screen viewer that pages through the steps.
+ */
+function ShowcaseCard({ showcase }: { showcase: PublicShowcase }) {
+  const { t } = useTranslation();
+  const steps = showcase.steps ?? [];
+  const title = showcase.title ?? t('publicCard.showcases');
+  const [index, setIndex] = useState<number | null>(null);
+  const open = index !== null;
+  const count = steps.length;
+
+  const close = useCallback(() => setIndex(null), []);
+  const go = useCallback((dir: 1 | -1) => setIndex((i) => (i === null ? i : (i + dir + count) % count)), [count]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+      else if (e.key === 'ArrowRight') go(1);
+      else if (e.key === 'ArrowLeft') go(-1);
+    };
+    window.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [open, close, go]);
+
+  const badgeFor = (j: number): string | null => {
+    if (count < 2) return null;
+    if (j === 0) return t('publicCard.showcaseBefore');
+    if (j === count - 1) return t('publicCard.showcaseResult');
+    return null;
+  };
+
+  return (
+    <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      {(showcase.title || showcase.intro) && (
+        <header className="border-b border-slate-100 px-4 py-3 sm:px-5">
+          {showcase.title && <h3 className="text-base font-semibold text-slate-900">{showcase.title}</h3>}
+          {showcase.intro && <p className="mt-0.5 text-sm leading-relaxed text-slate-600">{showcase.intro}</p>}
+        </header>
+      )}
+
+      <ol className="px-4 py-4 sm:px-5">
+        {steps.map((step, j) => {
+          const badge = badgeFor(j);
+          const isResult = count > 1 && j === count - 1;
+          return (
+            <li key={j} className="relative pb-6 pl-9 last:pb-0">
+              {j < count - 1 && (
+                <span aria-hidden="true" className="absolute bottom-0 left-[11px] top-7 w-px bg-slate-200" />
+              )}
+              <span
+                aria-hidden="true"
+                className={`absolute left-0 top-1 flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold ring-4 ring-white ${
+                  isResult ? 'bg-emerald-500 text-white' : 'bg-indigo-600 text-white'
+                }`}
+              >
+                {j + 1}
+              </span>
+
+              {badge && (
+                <span
+                  className={`mb-1.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
+                    isResult ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                  }`}
+                >
+                  {badge}
+                </span>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setIndex(j)}
+                aria-label={step.description || t('publicCard.showcaseStep', { n: j + 1 })}
+                className="group block w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <img
+                  src={step.image_url}
+                  alt={step.description || t('publicCard.showcaseStepAlt', { title, n: j + 1 })}
+                  loading="lazy"
+                  className="mx-auto max-h-96 w-auto max-w-full object-contain transition-transform duration-300 ease-out group-hover:scale-[1.03]"
+                />
+              </button>
+              {step.description && <p className="mt-1.5 text-sm text-slate-600">{step.description}</p>}
+            </li>
+          );
+        })}
+      </ol>
+
+      {open && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('publicCard.showcaseViewerLabel')}
+          onClick={close}
+          className="bc-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 sm:p-8"
+        >
+          <button
+            type="button"
+            aria-label={t('publicCard.showcaseClose')}
+            onClick={close}
+            className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-2xl text-white transition hover:scale-110 hover:bg-white/20 active:scale-90 sm:right-5 sm:top-5"
+          >
+            ✕
+          </button>
+
+          {count > 1 && (
+            <>
+              <button
+                type="button"
+                aria-label={t('publicCard.showcasePrev')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  go(-1);
+                }}
+                className="absolute left-2 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-3xl leading-none text-white transition duration-150 hover:-translate-x-0.5 hover:bg-white/20 active:scale-90 sm:left-5"
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                aria-label={t('publicCard.showcaseNext')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  go(1);
+                }}
+                className="absolute right-2 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-3xl leading-none text-white transition duration-150 hover:translate-x-0.5 hover:bg-white/20 active:scale-90 sm:right-5"
+              >
+                ›
+              </button>
+            </>
+          )}
+
+          <figure onClick={(e) => e.stopPropagation()} className="flex max-h-full max-w-3xl flex-col items-center gap-4">
+            <img
+              key={index}
+              src={steps[index].image_url}
+              alt={steps[index].description || t('publicCard.showcaseStepAlt', { title, n: index + 1 })}
+              className="bc-zoom-in max-h-[80vh] w-auto max-w-full rounded-lg object-contain shadow-2xl"
+            />
+            <figcaption className="text-center">
+              {steps[index].description && (
+                <span className="block max-w-prose text-sm text-slate-200">{steps[index].description}</span>
+              )}
+              {count > 1 && (
+                <span className="mt-1 block text-xs text-slate-500">
+                  {index + 1} / {count}
+                </span>
+              )}
+            </figcaption>
+          </figure>
+        </div>
+      )}
+    </article>
   );
 }
 

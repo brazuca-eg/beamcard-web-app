@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { PublicProfilePage } from './PublicProfilePage';
 import { getPublicProfile, type ProfileResponse } from '../api/profile';
+import { getPublicShowcases } from '../features/profile/showcases';
 import { ApiError } from '../api/client';
 
 vi.mock('../api/profile', () => ({
@@ -11,7 +12,12 @@ vi.mock('../api/profile', () => ({
   publicVcardUrl: (u: string) => `http://localhost:8080/profiles/@${u}/vcard`,
 }));
 
+vi.mock('../features/profile/showcases', () => ({
+  getPublicShowcases: vi.fn(() => Promise.resolve([])),
+}));
+
 const getPublicProfileMock = vi.mocked(getPublicProfile);
+const getPublicShowcasesMock = vi.mocked(getPublicShowcases);
 
 function renderAt(path: string) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -30,6 +36,8 @@ function renderAt(path: string) {
 describe('PublicProfilePage', () => {
   beforeEach(() => {
     getPublicProfileMock.mockReset();
+    getPublicShowcasesMock.mockReset();
+    getPublicShowcasesMock.mockResolvedValue([]);
   });
 
   it('renders the card for an existing username', async () => {
@@ -126,6 +134,50 @@ describe('PublicProfilePage', () => {
     expect(screen.getByText('2 / 2')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /previous certificate/i }));
     expect(screen.getByText('1 / 2')).toBeInTheDocument();
+  });
+
+  it('renders showcases as a titled photo timeline', async () => {
+    getPublicProfileMock.mockResolvedValue({
+      id: 'uuid',
+      username: 'alice',
+      display_name: 'Alice',
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+      links: [],
+      awards: [],
+      locale: 'en',
+    });
+    getPublicShowcasesMock.mockResolvedValue([
+      {
+        title: 'Braces — 12-month treatment',
+        intro: 'Crowded upper teeth.',
+        steps: [
+          { image_key: 'showcases/p/1.png', image_url: 'https://cdn/1.png', description: 'Crowded, rotated incisors' },
+          { image_key: 'showcases/p/2.png', image_url: 'https://cdn/2.png', description: 'Aligned, even smile' },
+        ],
+      },
+    ]);
+
+    const { default: userEvent } = await import('@testing-library/user-event');
+    renderAt('/@alice');
+
+    expect(await screen.findByText('Braces — 12-month treatment')).toBeInTheDocument();
+    expect(screen.getByText('Crowded upper teeth.')).toBeInTheDocument();
+    // First/last steps carry Before/Result badges.
+    expect(screen.getByText('Before')).toBeInTheDocument();
+    expect(screen.getByText('Result')).toBeInTheDocument();
+    expect(screen.getByText('Crowded, rotated incisors')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Crowded, rotated incisors' })).toHaveAttribute(
+      'src',
+      'https://cdn/1.png',
+    );
+
+    // Tapping a photo opens a full-screen viewer that pages through the steps.
+    await userEvent.click(screen.getByRole('button', { name: 'Crowded, rotated incisors' }));
+    expect(screen.getByRole('dialog', { name: /showcase image viewer/i })).toBeInTheDocument();
+    expect(screen.getByText('1 / 2')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /next image/i }));
+    expect(screen.getByText('2 / 2')).toBeInTheDocument();
   });
 
   it('shows a not-found state on 404 profile_not_found', async () => {
