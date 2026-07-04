@@ -69,6 +69,7 @@ describe('PublicProfilePage', () => {
       affiliations: [
         { role: 'Product Designer', organization: 'Acme', address: 'Stephansplatz 1', description: 'Entrance B' },
       ],
+      activities: ['Laparoscopic surgery', 'Ultrasound diagnostics'],
       created_at: '2026-01-01T00:00:00Z',
       updated_at: '2026-01-01T00:00:00Z',
       links: [],
@@ -79,6 +80,9 @@ describe('PublicProfilePage', () => {
     renderAt('/@alice');
 
     expect(await screen.findByText(/Vienna, Austria/)).toBeInTheDocument();
+    expect(screen.getByText('Main directions')).toBeInTheDocument();
+    expect(screen.getByText('Laparoscopic surgery')).toBeInTheDocument();
+    expect(screen.getByText('Ultrasound diagnostics')).toBeInTheDocument();
     expect(screen.getByText('Product Designer · Acme')).toBeInTheDocument();
     expect(screen.getByText('Stephansplatz 1')).toBeInTheDocument();
     expect(screen.getByText('Entrance B')).toBeInTheDocument();

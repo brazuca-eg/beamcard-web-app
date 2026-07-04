@@ -72,6 +72,11 @@ function toAffiliations(rows: WorkplaceRow[]): Affiliation[] {
   }));
 }
 
+/** API activities (plain direction strings) → editor rows; always ≥1 so the form isn't empty. */
+function toActivityRows(activities: string[] | undefined): string[] {
+  return activities && activities.length > 0 ? [...activities] : [''];
+}
+
 export function MyProfilePage() {
   const { t } = useTranslation();
   const { data: profile, isLoading, isError } = useMyProfile();
@@ -107,6 +112,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
   const [country, setCountry] = useState(profile.location?.country ?? '');
   const [city, setCity] = useState(profile.location?.city ?? '');
   const [workplaces, setWorkplaces] = useState<WorkplaceRow[]>(() => toRows(profile.affiliations));
+  const [activities, setActivities] = useState<string[]>(() => toActivityRows(profile.activities));
   const [label, setLabel] = useState('');
   const [url, setUrl] = useState('');
   const [type, setType] = useState<LinkType>('GENERIC');
@@ -168,7 +174,13 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
   const saveProfile = () => {
     setError(null);
     updateProfile.mutate(
-      { display_name: displayName, bio, location: { country, city }, affiliations: toAffiliations(workplaces) },
+      {
+        display_name: displayName,
+        bio,
+        location: { country, city },
+        affiliations: toAffiliations(workplaces),
+        activities: activities.map((a) => a.trim()).filter(Boolean),
+      },
       { onError: (e) => setError(problemOf(e)?.detail ?? t('editor.saveError')) },
     );
   };
@@ -180,6 +192,14 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
 
   const removeWorkplace = (index: number) =>
     setWorkplaces((rows) => (rows.length === 1 ? [{ ...EMPTY_ROW }] : rows.filter((_, i) => i !== index)));
+
+  const updateActivity = (index: number, value: string) =>
+    setActivities((rows) => rows.map((r, i) => (i === index ? value : r)));
+
+  const addActivity = () => setActivities((rows) => [...rows, '']);
+
+  const removeActivity = (index: number) =>
+    setActivities((rows) => (rows.length === 1 ? [''] : rows.filter((_, i) => i !== index)));
 
   const addLink = () => {
     setError(null);
@@ -430,6 +450,38 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
             className="py-1.5 px-3 text-sm border border-slate-300 rounded-md hover:bg-slate-50"
           >
             {t('editor.addWorkplace')}
+          </button>
+        </fieldset>
+
+        <fieldset className="space-y-3">
+          <legend className="text-sm font-medium text-slate-700">{t('editor.activities')}</legend>
+          <p className="text-xs text-slate-400">{t('editor.activitiesHint')}</p>
+          {activities.map((a, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                aria-label={t('editor.activityNameAria', { n: i + 1 })}
+                placeholder={t('editor.activityNamePlaceholder')}
+                value={a}
+                maxLength={160}
+                onChange={(e) => updateActivity(i, e.target.value)}
+                className="min-w-0 flex-1 px-3 py-2 border border-slate-300 rounded-md"
+              />
+              <button
+                type="button"
+                aria-label={t('editor.removeActivity', { n: i + 1 })}
+                onClick={() => removeActivity(i)}
+                className="px-2 text-red-600 transition-transform duration-150 hover:scale-125 hover:text-red-800 active:scale-90"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={addActivity}
+            className="py-1.5 px-3 text-sm border border-slate-300 rounded-md hover:bg-slate-50"
+          >
+            {t('editor.addActivity')}
           </button>
         </fieldset>
 
