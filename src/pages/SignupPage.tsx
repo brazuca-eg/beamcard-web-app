@@ -1,5 +1,6 @@
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { MarketingHeader } from '../components/MarketingHeader';
 import { SignupForm } from '../features/auth/SignupForm';
 import { useAuthStore } from '../stores/authStore';
 import type { AuthResponse } from '../api/auth';
@@ -22,16 +23,19 @@ export function SignupPage() {
   }
 
   return (
-    <div className="max-w-md mx-auto mt-20 p-6">
-      <h1 className="text-2xl font-bold text-slate-900">{t('auth.createTitle')}</h1>
-      <p className="text-sm text-slate-600 mb-6 italic">{t('auth.tagline')}</p>
-      <SignupForm onSuccess={handleSuccess} />
-      <p className="mt-4 text-sm text-slate-600">
-        {t('auth.alreadyHaveAccount')}{' '}
-        <Link className="text-indigo-600 hover:underline" to="/login">
-          {t('auth.signIn')}
-        </Link>
-      </p>
-    </div>
+    <>
+      <MarketingHeader />
+      <div className="max-w-md mx-auto mt-12 p-6">
+        <h1 className="text-2xl font-bold text-slate-900">{t('auth.createTitle')}</h1>
+        <p className="text-sm text-slate-600 mb-6 italic">{t('auth.tagline')}</p>
+        <SignupForm onSuccess={handleSuccess} />
+        <p className="mt-4 text-sm text-slate-600">
+          {t('auth.alreadyHaveAccount')}{' '}
+          <Link className="text-indigo-600 hover:underline" to="/login">
+            {t('auth.signIn')}
+          </Link>
+        </p>
+      </div>
+    </>
   );
 }
