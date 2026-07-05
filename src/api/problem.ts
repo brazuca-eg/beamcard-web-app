@@ -20,6 +20,8 @@ export type ProblemCode =
   | 'invalid_credentials'
   | 'account_inactive'
   | 'user_not_found'
+  | 'invalid_google_token'
+  | 'email_password_account'
   // profile-service
   | 'profile_not_found'
   | 'link_not_found'

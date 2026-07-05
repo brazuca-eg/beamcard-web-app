@@ -23,6 +23,8 @@ export interface AuthResponse {
   token_type: 'Bearer';
   expires_in: number;
   refresh_token: string;
+  /** True when a Google sign-in just created the account with a placeholder handle. */
+  needs_username?: boolean;
   user: {
     id: string;
     email: string;
@@ -62,8 +64,31 @@ export function login(req: LoginRequest): Promise<AuthResponse> {
   });
 }
 
+/**
+ * POST /auth/oauth/google — exchange a Google ID token (from Google Identity
+ * Services) for a Beamcard session. `locale` seeds a brand-new user's language.
+ */
+export function loginWithGoogle(idToken: string, locale: string): Promise<AuthResponse> {
+  return apiFetch<AuthResponse>('/auth/oauth/google', {
+    method: 'POST',
+    body: JSON.stringify({ id_token: idToken, locale }),
+  });
+}
+
 export function getCurrentAccount(): Promise<AccountResponse> {
   return apiFetch<AccountResponse>('/auth/me');
+}
+
+/**
+ * PATCH /auth/account — change handle and/or language. Omitted fields are left
+ * unchanged. Returns a fresh token pair carrying the updated claims, so the
+ * caller must persist the new tokens (setSession).
+ */
+export function updateAccount(patch: { username?: string; locale?: string }): Promise<AuthResponse> {
+  return apiFetch<AuthResponse>('/auth/account', {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
 }
 
 /** POST /auth/refresh — exchange a refresh token for a fresh access + refresh pair (rotation). */
