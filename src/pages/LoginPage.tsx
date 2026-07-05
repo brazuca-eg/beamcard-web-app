@@ -2,6 +2,7 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { MarketingHeader } from '../components/MarketingHeader';
 import { LoginForm } from '../features/auth/LoginForm';
+import { GoogleAuthSection } from '../features/auth/GoogleAuthSection';
 import { useAuthStore } from '../stores/authStore';
 import type { AuthResponse } from '../api/auth';
 
@@ -29,6 +30,7 @@ export function LoginPage() {
         <h1 className="text-2xl font-bold text-slate-900">{t('auth.welcomeBack')}</h1>
       <p className="text-sm text-slate-600 mb-6 italic">{t('auth.tagline')}</p>
       <LoginForm onSuccess={handleSuccess} />
+      <GoogleAuthSection text="signin_with" onSuccess={handleSuccess} />
       <p className="mt-4 text-sm">
         <Link className="text-indigo-600 hover:underline" to="/forgot-password">
           {t('auth.forgotLink')}
