@@ -1,5 +1,6 @@
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { MarketingHeader } from '../components/MarketingHeader';
 import { LoginForm } from '../features/auth/LoginForm';
 import { useAuthStore } from '../stores/authStore';
 import type { AuthResponse } from '../api/auth';
@@ -22,8 +23,10 @@ export function LoginPage() {
   }
 
   return (
-    <div className="max-w-md mx-auto mt-20 p-6">
-      <h1 className="text-2xl font-bold text-slate-900">{t('auth.welcomeBack')}</h1>
+    <>
+      <MarketingHeader />
+      <div className="max-w-md mx-auto mt-12 p-6">
+        <h1 className="text-2xl font-bold text-slate-900">{t('auth.welcomeBack')}</h1>
       <p className="text-sm text-slate-600 mb-6 italic">{t('auth.tagline')}</p>
       <LoginForm onSuccess={handleSuccess} />
       <p className="mt-4 text-sm">
@@ -37,6 +40,7 @@ export function LoginPage() {
           {t('auth.createAccount')}
         </Link>
       </p>
-    </div>
+      </div>
+    </>
   );
 }
