@@ -2,14 +2,13 @@ import type { LinkType } from '../../api/profile';
 
 /**
  * Handle-based platforms: the user types only the handle/number and we prepend
- * the canonical base URL. Platforms with no clean profile URL (GENERIC, VIBER)
- * and EMAIL take the raw value as-is. Composed URLs satisfy the backend's
+ * the canonical base URL. Platforms with no clean profile URL (GENERIC) and
+ * EMAIL take the raw value as-is. Composed URLs satisfy the backend's
  * per-type LinkUrlValidator.
  */
 export const LINK_PREFIX: Record<LinkType, string> = {
   GENERIC: '',
   EMAIL: '',
-  VIBER: '',
   WHATSAPP: 'https://wa.me/',
   TELEGRAM: 'https://t.me/',
   INSTAGRAM: 'https://instagram.com/',
@@ -21,7 +20,6 @@ export const LINK_PREFIX: Record<LinkType, string> = {
 export const VALUE_PLACEHOLDER: Record<LinkType, string> = {
   GENERIC: 'https://…',
   EMAIL: 'you@example.com',
-  VIBER: 'https://viber.com/…',
   WHATSAPP: '15551234567',
   TELEGRAM: 'yourname',
   INSTAGRAM: 'yourname',

@@ -11,7 +11,6 @@ export type LinkType =
   | 'GENERIC'
   | 'WHATSAPP'
   | 'TELEGRAM'
-  | 'VIBER'
   | 'INSTAGRAM'
   | 'TWITTER'
   | 'LINKEDIN'
@@ -54,6 +53,8 @@ export interface ProfileResponse {
   username: string;
   display_name?: string;
   bio?: string;
+  /** Contact phone in E.164 (e.g. +380671234567). */
+  phone?: string;
   location?: Location;
   affiliations?: Affiliation[];
   /** Main directions of professional activity — a plain list of strings. */
@@ -71,6 +72,8 @@ export interface ProfileResponse {
 export interface UpdateProfileRequest {
   display_name?: string;
   bio?: string;
+  /** E.164 phone, or '' to clear. */
+  phone?: string;
   location?: Location;
   affiliations?: Affiliation[];
   activities?: string[];

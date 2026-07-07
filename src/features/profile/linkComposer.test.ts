@@ -20,10 +20,9 @@ describe('linkComposer', () => {
     expect(composeUrl('WHATSAPP', '+1 (555) 123-4567')).toBe('https://wa.me/15551234567');
   });
 
-  it('leaves prefixless types (generic, email, viber) as the raw value', () => {
+  it('leaves prefixless types (generic, email) as the raw value', () => {
     expect(composeUrl('GENERIC', 'https://blog.me')).toBe('https://blog.me');
     expect(composeUrl('EMAIL', 'me@example.com')).toBe('me@example.com');
-    expect(composeUrl('VIBER', 'https://viber.com/x')).toBe('https://viber.com/x');
     expect(hasPrefix('GENERIC')).toBe(false);
     expect(hasPrefix('TELEGRAM')).toBe(true);
   });
