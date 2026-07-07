@@ -114,6 +114,7 @@ export const en = {
     orgPlaceholder: 'Organization (e.g. FitGym)',
     orgAria: 'Organization {{n}}',
     addressPlaceholder: 'Address (street, number)',
+    addressHint: 'Enter a full street address (or a place Google Maps knows) so the map pins the exact spot — the preview below updates as you type.',
     addressAria: 'Address {{n}}',
     findPlaceholder: 'How to find it (e.g. inside the mall, 2nd floor)',
     findAria: 'Description {{n}}',

@@ -114,6 +114,7 @@ export const uk: Resources = {
     orgPlaceholder: 'Організація (напр. FitGym)',
     orgAria: 'Організація {{n}}',
     addressPlaceholder: 'Адреса (вулиця, номер)',
+    addressHint: 'Введіть повну адресу (або місце, яке знає Google Maps), щоб мапа показала точну точку — попередній перегляд нижче оновлюється під час введення.',
     addressAria: 'Адреса {{n}}',
     findPlaceholder: 'Як знайти (напр. у ТЦ, 2-й поверх)',
     findAria: 'Опис {{n}}',

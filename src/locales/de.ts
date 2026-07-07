@@ -114,6 +114,7 @@ export const de: Resources = {
     orgPlaceholder: 'Organisation (z. B. FitGym)',
     orgAria: 'Organisation {{n}}',
     addressPlaceholder: 'Adresse (Straße, Nummer)',
+    addressHint: 'Gib eine vollständige Adresse ein (oder einen Ort, den Google Maps kennt), damit die Karte den genauen Punkt zeigt — die Vorschau unten aktualisiert sich beim Tippen.',
     addressAria: 'Adresse {{n}}',
     findPlaceholder: 'So findest du hin (z. B. im Einkaufszentrum, 2. Stock)',
     findAria: 'Beschreibung {{n}}',

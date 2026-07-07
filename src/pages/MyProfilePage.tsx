@@ -479,6 +479,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
                 onChange={(e) => updateWorkplace(i, 'address', e.target.value)}
                 className="w-full px-3 py-2 border border-slate-300 rounded-md"
               />
+              <p className="text-xs text-slate-400">{t('editor.addressHint')}</p>
               <input
                 aria-label={t('editor.findAria', { n: i + 1 })}
                 placeholder={t('editor.findPlaceholder')}
