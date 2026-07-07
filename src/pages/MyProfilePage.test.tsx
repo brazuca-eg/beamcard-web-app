@@ -145,7 +145,7 @@ describe('MyProfilePage', () => {
     renderPage();
     await screen.findByDisplayValue('Alice');
 
-    await userEvent.type(screen.getByLabelText('Country'), 'Austria');
+    await userEvent.selectOptions(screen.getByLabelText('Country'), 'Austria');
     await userEvent.type(screen.getByLabelText('City'), 'Vienna');
     await userEvent.type(screen.getByLabelText('Role 1'), 'Trainer');
     await userEvent.type(screen.getByLabelText('Organization 1'), 'FitGym');
@@ -178,15 +178,15 @@ describe('MyProfilePage', () => {
     expect(screen.queryByLabelText('Role 2')).not.toBeInTheDocument();
   });
 
-  it('offers a country datalist for type-to-filter', async () => {
+  it('offers a localized country select (values stay English)', async () => {
     getMyProfileMock.mockResolvedValue(PROFILE);
     renderPage();
     await screen.findByDisplayValue('Alice');
 
-    // The country input is backed by a <datalist> the browser filters as you type.
-    expect(screen.getByLabelText('Country')).toHaveAttribute('list', 'country-options');
-    const austria = document.querySelector('#country-options option[value="Austria"]');
-    expect(austria).toBeInTheDocument();
+    // The country field is a <select> of localized names whose values are canonical English.
+    const select = screen.getByLabelText('Country');
+    expect(select.tagName).toBe('SELECT');
+    expect(select.querySelector('option[value="Austria"]')).toBeInTheDocument();
   });
 
   it('prepends the platform base URL when only a handle is typed', async () => {

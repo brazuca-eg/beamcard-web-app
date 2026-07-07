@@ -91,6 +91,15 @@ function Card({ profile }: { profile: ProfileResponse }) {
           <span aria-hidden="true">＋</span> {t('publicCard.saveContact')}
         </a>
 
+        {profile.phone && (
+          <a
+            href={`tel:${profile.phone}`}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 active:scale-[.99]"
+          >
+            <span aria-hidden="true">📞</span> {t('publicCard.call')}
+          </a>
+        )}
+
         {links.length > 0 && (
           <ul className="mt-4 space-y-3">
             {links.map((link) => (

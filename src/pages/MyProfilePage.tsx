@@ -1,7 +1,12 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
+import PhoneInput, { isValidPhoneNumber, type Country } from 'react-phone-number-input';
+import 'react-phone-number-input/style.css';
+import phoneLabelsEn from 'react-phone-number-input/locale/en.json';
+import phoneLabelsDe from 'react-phone-number-input/locale/de.json';
+import phoneLabelsUk from 'react-phone-number-input/locale/ua.json';
 import { problemOf } from '../api/problem';
 import {
   AVATAR_CONTENT_TYPES,
@@ -21,7 +26,7 @@ import { WorkplaceMap } from '../features/profile/WorkplaceMap';
 import { ShareDialog } from '../features/profile/ShareDialog';
 import { ShowcasesEditor } from '../features/profile/ShowcasesEditor';
 import { LINK_PREFIX, VALUE_PLACEHOLDER, composeUrl, hasPrefix, toHandle } from '../features/profile/linkComposer';
-import { COUNTRIES } from '../features/profile/countries';
+import { countryOptions } from '../features/profile/countries';
 
 /** Display label per type; GENERIC is user-provided so it has no preset. */
 const TYPE_LABELS: Record<LinkType, string> = {
@@ -92,8 +97,22 @@ export function MyProfilePage() {
   return <CardEditor profile={profile} />;
 }
 
+/** Best-effort default country for the phone input's dropdown, from the UI language. */
+function localeCountry(lang: string): Country | undefined {
+  if (lang === 'uk') return 'UA';
+  if (lang === 'de') return 'DE';
+  return undefined;
+}
+
+/** Localized country names for the phone dropdown (the lib defaults to English). */
+const PHONE_LABELS: Record<string, typeof phoneLabelsEn> = {
+  en: phoneLabelsEn,
+  de: phoneLabelsDe,
+  uk: phoneLabelsUk,
+};
+
 function CardEditor({ profile }: { profile: ProfileResponse }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const {
     updateProfile,
     createLink,
@@ -110,6 +129,8 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
 
   const [displayName, setDisplayName] = useState(profile.display_name ?? '');
   const [bio, setBio] = useState(profile.bio ?? '');
+  const [phone, setPhone] = useState<string | undefined>(profile.phone ?? undefined);
+  const countries = useMemo(() => countryOptions(i18n.language), [i18n.language]);
   const [country, setCountry] = useState(profile.location?.country ?? '');
   const [city, setCity] = useState(profile.location?.city ?? '');
   const [workplaces, setWorkplaces] = useState<WorkplaceRow[]>(() => toRows(profile.affiliations));
@@ -174,10 +195,15 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
 
   const saveProfile = () => {
     setError(null);
+    if (phone && !isValidPhoneNumber(phone)) {
+      setError(t('editor.phoneInvalid'));
+      return;
+    }
     updateProfile.mutate(
       {
         display_name: displayName,
         bio,
+        phone: phone ?? '', // '' clears it server-side
         location: { country, city },
         affiliations: toAffiliations(workplaces),
         activities: activities.map((a) => a.trim()).filter(Boolean),
@@ -368,22 +394,43 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
           />
         </label>
 
+        <div className="block text-sm font-medium text-slate-700">
+          {t('editor.phone')}
+          <PhoneInput
+            international
+            labels={PHONE_LABELS[i18n.language] ?? phoneLabelsEn}
+            defaultCountry={localeCountry(i18n.language)}
+            value={phone}
+            onChange={setPhone}
+            className="mt-1"
+            numberInputProps={{
+              className: 'w-full px-3 py-2 border border-slate-300 rounded-md',
+              'aria-label': t('editor.phone'),
+            }}
+          />
+          {phone && !isValidPhoneNumber(phone) && (
+            <p className="mt-1 text-xs text-red-600">{t('editor.phoneInvalid')}</p>
+          )}
+        </div>
+
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium text-slate-700">{t('editor.primaryLocation')}</legend>
           <div className="flex gap-2">
-            <input
+            <select
               aria-label={t('editor.country')}
-              placeholder={t('editor.country')}
-              list="country-options"
               value={country}
               onChange={(e) => setCountry(e.target.value)}
-              className="w-1/2 px-3 py-2 border border-slate-300 rounded-md"
-            />
-            <datalist id="country-options">
-              {COUNTRIES.map((c) => (
-                <option key={c} value={c} />
+              className="w-1/2 px-3 py-2 border border-slate-300 rounded-md bg-white"
+            >
+              <option value="">{t('editor.country')}</option>
+              {/* Preserve an existing value that isn't in the generated list (legacy free-text). */}
+              {country && !countries.some((c) => c.value === country) && <option value={country}>{country}</option>}
+              {countries.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
               ))}
-            </datalist>
+            </select>
             <input
               aria-label={t('editor.city')}
               placeholder={t('editor.city')}
