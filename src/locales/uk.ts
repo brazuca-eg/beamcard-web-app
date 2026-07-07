@@ -208,6 +208,7 @@ export const uk: Resources = {
     showcaseNext: 'Наступне зображення',
     whereToFind: 'Де мене знайти',
     madeWith: 'Створено з Beamcard',
+    notAffiliated: 'Логотипи брендів належать їхнім власникам. Beamcard не пов’язаний із ними та не підтримується ними.',
   },
   awards: {
     heading: 'Сертифікати та нагороди',

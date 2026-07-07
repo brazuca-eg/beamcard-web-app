@@ -510,7 +510,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
                 aria-label={t('editor.activityNameAria', { n: i + 1 })}
                 placeholder={t('editor.activityNamePlaceholder')}
                 value={a}
-                maxLength={160}
+                maxLength={60}
                 onChange={(e) => updateActivity(i, e.target.value)}
                 className="min-w-0 flex-1 px-3 py-2 border border-slate-300 rounded-md"
               />

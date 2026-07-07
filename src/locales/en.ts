@@ -208,6 +208,7 @@ export const en = {
     showcaseNext: 'Next image',
     whereToFind: 'Where to find me',
     madeWith: 'Made with Beamcard',
+    notAffiliated: 'Brand logos are trademarks of their owners. Beamcard is not affiliated with or endorsed by them.',
   },
   awards: {
     heading: 'Certificates & awards',

@@ -87,11 +87,12 @@ describe('PublicProfilePage', () => {
 
     renderAt('/@alice');
 
+    // Location + activities are always visible; the sole "Where to find me" section is open by default.
     expect(await screen.findByText(/Vienna, Austria/)).toBeInTheDocument();
     expect(screen.getByText('Main directions')).toBeInTheDocument();
     expect(screen.getByText('Laparoscopic surgery')).toBeInTheDocument();
     expect(screen.getByText('Ultrasound diagnostics')).toBeInTheDocument();
-    expect(screen.getByText('Product Designer · Acme')).toBeInTheDocument();
+    expect(await screen.findByText('Product Designer · Acme')).toBeInTheDocument();
     expect(screen.getByText('Stephansplatz 1')).toBeInTheDocument();
     expect(screen.getByText('Entrance B')).toBeInTheDocument();
     // With no Maps key configured, the workplace still offers a keyless directions link.
@@ -120,12 +121,13 @@ describe('PublicProfilePage', () => {
 
     renderAt('/@alice');
 
+    // The sole "Certificates & awards" section is open by default.
     expect(await screen.findByText(/Certificates & awards/i)).toBeInTheDocument();
-    const thumbs = screen.getAllByRole('img', { name: /certificate|Board Certification/i });
+    const thumbs = await screen.findAllByRole('img', { name: /certificate|Board Certification/i });
     expect(thumbs).toHaveLength(2);
     expect(screen.getByText('Board Certification 2024')).toBeInTheDocument();
 
-    await userEvent.click(screen.getAllByRole('button')[0]);
+    await userEvent.click(thumbs[0]); // clicking the thumbnail opens the lightbox
     expect(screen.getByRole('dialog', { name: /certificate/i })).toBeInTheDocument();
     expect(screen.getByText('1 / 2')).toBeInTheDocument();
 
@@ -161,6 +163,7 @@ describe('PublicProfilePage', () => {
     const { default: userEvent } = await import('@testing-library/user-event');
     renderAt('/@alice');
 
+    // The sole Showcases section is open by default (its body appears once the query resolves).
     expect(await screen.findByText('Braces — 12-month treatment')).toBeInTheDocument();
     expect(screen.getByText('Crowded upper teeth.')).toBeInTheDocument();
     // First/last steps carry Before/Result badges.

@@ -208,6 +208,7 @@ export const de: Resources = {
     showcaseNext: 'Nächstes Bild',
     whereToFind: 'Wo du mich findest',
     madeWith: 'Erstellt mit Beamcard',
+    notAffiliated: 'Marken-Logos sind Eigentum ihrer Inhaber. Beamcard ist mit ihnen nicht verbunden und wird von ihnen nicht unterstützt.',
   },
   awards: {
     heading: 'Zertifikate & Auszeichnungen',
