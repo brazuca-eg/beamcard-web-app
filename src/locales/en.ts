@@ -183,7 +183,6 @@ export const en = {
     GENERIC: 'Custom link',
     WHATSAPP: 'WhatsApp',
     TELEGRAM: 'Telegram',
-    VIBER: 'Viber',
     INSTAGRAM: 'Instagram',
     TWITTER: 'X (Twitter)',
     LINKEDIN: 'LinkedIn',

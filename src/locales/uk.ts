@@ -183,7 +183,6 @@ export const uk: Resources = {
     GENERIC: 'Власне посилання',
     WHATSAPP: 'WhatsApp',
     TELEGRAM: 'Telegram',
-    VIBER: 'Viber',
     INSTAGRAM: 'Instagram',
     TWITTER: 'X (Twitter)',
     LINKEDIN: 'LinkedIn',

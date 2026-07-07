@@ -33,7 +33,6 @@ const TYPE_LABELS: Record<LinkType, string> = {
   GENERIC: 'Custom link',
   WHATSAPP: 'WhatsApp',
   TELEGRAM: 'Telegram',
-  VIBER: 'Viber',
   INSTAGRAM: 'Instagram',
   TWITTER: 'X (Twitter)',
   LINKEDIN: 'LinkedIn',

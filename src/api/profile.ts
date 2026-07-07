@@ -11,7 +11,6 @@ export type LinkType =
   | 'GENERIC'
   | 'WHATSAPP'
   | 'TELEGRAM'
-  | 'VIBER'
   | 'INSTAGRAM'
   | 'TWITTER'
   | 'LINKEDIN'

@@ -183,7 +183,6 @@ export const de: Resources = {
     GENERIC: 'Eigener Link',
     WHATSAPP: 'WhatsApp',
     TELEGRAM: 'Telegram',
-    VIBER: 'Viber',
     INSTAGRAM: 'Instagram',
     TWITTER: 'X (Twitter)',
     LINKEDIN: 'LinkedIn',
