@@ -4,13 +4,13 @@ import { MarketingHeader } from '../components/MarketingHeader';
 import { useAuthStore } from '../stores/authStore';
 
 /**
- * Public marketing page at `/` — the URL you send people to explain Beamcard.
- * Signed-in visitors skip the pitch and go straight to their dashboard.
+ * Public marketing page. At `/` signed-in visitors skip the pitch and go to their
+ * dashboard; at `/about` it always renders (so logged-in users can revisit it).
  */
-export function LandingPage() {
+export function LandingPage({ forceShow = false }: { forceShow?: boolean }) {
   const { t } = useTranslation();
   const token = useAuthStore((s) => s.token);
-  if (token) {
+  if (token && !forceShow) {
     return <Navigate to="/app" replace />;
   }
 

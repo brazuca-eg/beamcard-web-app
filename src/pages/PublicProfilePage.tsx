@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { Navigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useParams } from 'react-router-dom';
 import { ApiError } from '../api/client';
+import { useAuthStore } from '../stores/authStore';
 import { problemOf } from '../api/problem';
 import {
   publicVcardUrl,
@@ -618,7 +619,22 @@ function primaryLocation(profile: ProfileResponse): string {
 
 /** Soft full-height backdrop for the card (mobile-first). */
 function Page({ children }: { children: React.ReactNode }) {
-  return <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-4 py-10">{children}</div>;
+  const { t } = useTranslation();
+  const token = useAuthStore((s) => s.token);
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-4 py-10">
+      {/* Logged-in viewers (e.g. previewing their own card) get a way back; visitors don't. */}
+      {token && (
+        <Link
+          to="/app/profile"
+          className="fixed left-4 top-4 z-40 inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white/90 px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm backdrop-blur transition hover:bg-white"
+        >
+          ← {t('publicCard.backToProfile')}
+        </Link>
+      )}
+      {children}
+    </div>
+  );
 }
 
 function Centered({ children }: { children: React.ReactNode }) {

@@ -1,6 +1,12 @@
 import type { Resources } from './en';
 
 export const de: Resources = {
+  nav: {
+    account: 'Konto',
+    editCard: 'Karte bearbeiten',
+    viewPublic: 'Öffentlich ansehen',
+    about: 'Über Beamcard',
+  },
   lang: {
     label: 'Sprache',
     en: 'English',
@@ -212,6 +218,7 @@ export const de: Resources = {
     showcaseNext: 'Nächstes Bild',
     whereToFind: 'Wo du mich findest',
     madeWith: 'Erstellt mit Beamcard',
+    backToProfile: 'Zurück zum Profil',
     notAffiliated: 'Marken-Logos sind Eigentum ihrer Inhaber. Beamcard ist mit ihnen nicht verbunden und wird von ihnen nicht unterstützt.',
   },
   awards: {

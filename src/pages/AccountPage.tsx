@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../stores/authStore';
-import { logout as logoutApi, updateAccount, type AccountResponse } from '../api/auth';
+import { updateAccount, type AccountResponse } from '../api/auth';
 import { getMyProfile, getMyProfileQr, publicCardUrl } from '../api/profile';
 import { problemOf } from '../api/problem';
 import { useCurrentAccount } from '../features/auth/useCurrentAccount';
@@ -15,46 +15,24 @@ const PANEL = 'rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70 sm:p-
 
 export function AccountPage() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const clear = useAuthStore((s) => s.clear);
   const { data: account, isLoading, isError } = useCurrentAccount();
 
-  const logout = () => {
-    // Best-effort server-side revoke of the refresh token; clear locally regardless.
-    const refreshToken = useAuthStore.getState().refreshToken;
-    if (refreshToken) {
-      void logoutApi(refreshToken).catch(() => {});
-    }
-    clear();
-    queryClient.clear();
-    navigate('/login', { replace: true });
-  };
-
   if (isLoading) {
-    return <div className="mx-auto mt-20 max-w-md p-6 text-slate-600">{t('account.loading')}</div>;
+    return <div className="mx-auto max-w-md p-6 text-slate-600">{t('account.loading')}</div>;
   }
-
   if (isError || !account) {
-    // A 401 has already cleared the token (apiFetch), so ProtectedRoute will
-    // redirect on the next render. This covers other failures (e.g. server down).
-    return (
-      <div className="mx-auto mt-20 max-w-md p-6">
-        <p className="mb-4 text-sm text-red-600">{t('account.loadError')}</p>
-        <button onClick={logout} className="text-sm text-indigo-600 hover:underline">
-          {t('account.signInAgain')}
-        </button>
-      </div>
-    );
+    // A 401 has already cleared the token (apiFetch), so ProtectedRoute redirects on the next
+    // render. This covers other failures (server down); logout is available in the app header.
+    return <div className="mx-auto max-w-md p-6 text-sm text-red-600">{t('account.loadError')}</div>;
   }
 
-  return <AccountDetails account={account} onLogout={logout} />;
+  return <AccountDetails account={account} />;
 }
 
 /** Matches the placeholder handle minted for a fresh Google sign-in (user_<8 hex>). */
 const PLACEHOLDER_HANDLE = /^user_[0-9a-f]{8}$/i;
 
-function AccountDetails({ account, onLogout }: { account: AccountResponse; onLogout: () => void }) {
+function AccountDetails({ account }: { account: AccountResponse }) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const setSession = useAuthStore((s) => s.setSession);
@@ -119,20 +97,8 @@ function AccountDetails({ account, onLogout }: { account: AccountResponse; onLog
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
-      <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-slate-50/85 backdrop-blur">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
-          <span className="text-lg font-bold tracking-tight text-slate-900">@{account.username}</span>
-          <button
-            onClick={onLogout}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-50"
-          >
-            {t('account.logOut')}
-          </button>
-        </div>
-      </header>
-
-      <main className="mx-auto grid max-w-4xl gap-5 px-4 py-6 lg:grid-cols-[1fr_minmax(0,340px)] lg:items-start">
+    <>
+      <div className="mx-auto grid max-w-4xl gap-5 px-4 py-6 lg:grid-cols-[1fr_minmax(0,340px)] lg:items-start">
         <div className="space-y-5">
           {/* Identity + primary actions */}
           <section className={PANEL}>
@@ -291,7 +257,7 @@ function AccountDetails({ account, onLogout }: { account: AccountResponse; onLog
             </button>
           </div>
         </section>
-      </main>
+      </div>
 
       {shareOpen && (
         <ShareDialog
@@ -302,6 +268,6 @@ function AccountDetails({ account, onLogout }: { account: AccountResponse; onLog
           onClose={() => setShareOpen(false)}
         />
       )}
-    </div>
+    </>
   );
 }

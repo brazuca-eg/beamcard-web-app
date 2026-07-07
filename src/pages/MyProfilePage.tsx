@@ -1,5 +1,4 @@
 import { useMemo, useRef, useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import PhoneInput, { isValidPhoneNumber, type Country } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
@@ -289,24 +288,10 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
-      {/* Sticky top bar with navigation */}
-      <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-slate-50/85 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{t('editor.title')}</h1>
-          <nav className="flex items-center gap-4 text-sm">
-            <RouterLink to={`/@${profile.username}`} className="font-medium text-indigo-600 hover:underline">
-              {t('editor.viewPublic')}
-            </RouterLink>
-            <RouterLink to="/app" className="text-slate-600 hover:underline">
-              {t('editor.account')}
-            </RouterLink>
-          </nav>
-        </div>
-      </header>
+    <div className="mx-auto max-w-3xl space-y-5 px-4 pb-16 pt-6">
+      <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{t('editor.title')}</h1>
 
-      <div className="mx-auto max-w-3xl space-y-5 px-4 pb-20 pt-6">
-        {error && (
+      {error && (
           <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
             {error}
           </p>
@@ -788,7 +773,6 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
             </button>
           </div>
         </section>
-      </div>
     </div>
   );
 }

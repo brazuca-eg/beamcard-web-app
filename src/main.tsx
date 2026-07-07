@@ -11,6 +11,7 @@ import { AccountPage } from './pages/AccountPage';
 import { MyProfilePage } from './pages/MyProfilePage';
 import { PublicProfilePage } from './pages/PublicProfilePage';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { AppLayout } from './components/AppLayout';
 import './i18n';
 import './index.css';
 
@@ -27,26 +28,21 @@ createRoot(document.getElementById('root')!).render(
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/about" element={<LandingPage forceShow />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route
-            path="/app"
             element={
               <ProtectedRoute>
-                <AccountPage />
+                <AppLayout />
               </ProtectedRoute>
             }
-          />
-          <Route
-            path="/app/profile"
-            element={
-              <ProtectedRoute>
-                <MyProfilePage />
-              </ProtectedRoute>
-            }
-          />
+          >
+            <Route path="/app" element={<AccountPage />} />
+            <Route path="/app/profile" element={<MyProfilePage />} />
+          </Route>
           <Route path="/:handle" element={<PublicProfilePage />} />
           <Route path="*" element={<Navigate to="/app" replace />} />
         </Routes>

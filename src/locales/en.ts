@@ -1,6 +1,12 @@
 // English is the source of truth. de.ts / uk.ts must mirror this shape
 // (enforced via `satisfies typeof en`). Interpolation uses {{name}} placeholders.
 export const en = {
+  nav: {
+    account: 'Account',
+    editCard: 'Edit card',
+    viewPublic: 'View public',
+    about: 'About Beamcard',
+  },
   lang: {
     label: 'Language',
     en: 'English',
@@ -212,6 +218,7 @@ export const en = {
     showcaseNext: 'Next image',
     whereToFind: 'Where to find me',
     madeWith: 'Made with Beamcard',
+    backToProfile: 'Back to profile',
     notAffiliated: 'Brand logos are trademarks of their owners. Beamcard is not affiliated with or endorsed by them.',
   },
   awards: {

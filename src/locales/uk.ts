@@ -1,6 +1,12 @@
 import type { Resources } from './en';
 
 export const uk: Resources = {
+  nav: {
+    account: 'Акаунт',
+    editCard: 'Редагувати',
+    viewPublic: 'Публічний вигляд',
+    about: 'Про Beamcard',
+  },
   lang: {
     label: 'Мова',
     en: 'English',
@@ -212,6 +218,7 @@ export const uk: Resources = {
     showcaseNext: 'Наступне зображення',
     whereToFind: 'Де мене знайти',
     madeWith: 'Створено з Beamcard',
+    backToProfile: 'Назад до профілю',
     notAffiliated: 'Логотипи брендів належать їхнім власникам. Beamcard не пов’язаний із ними та не підтримується ними.',
   },
   awards: {
