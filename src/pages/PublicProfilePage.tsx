@@ -9,6 +9,7 @@ import { usePublicProfile } from '../features/profile/usePublicProfile';
 import { mapQuery } from '../features/profile/maps';
 import { WorkplaceMap } from '../features/profile/WorkplaceMap';
 import { getPublicShowcases, type Showcase } from '../features/profile/showcases';
+import { localizeCountry } from '../features/profile/countries';
 
 /**
  * Public card at /@username (e.g. /@alice). Anonymous — no auth. The route
@@ -509,10 +510,11 @@ function roleLine(affiliation: Affiliation): string {
   return [affiliation.role, affiliation.organization].filter(Boolean).join(' · ');
 }
 
-/** "City, Country" — the profile's primary location; skips any blank part. */
+/** "City, Country" — the profile's primary location, country localized to the card's language. */
 function primaryLocation(profile: ProfileResponse): string {
   const loc = profile.location;
-  return loc ? [loc.city, loc.country].filter(Boolean).join(', ') : '';
+  if (!loc) return '';
+  return [loc.city, localizeCountry(loc.country, profile.locale)].filter(Boolean).join(', ');
 }
 
 /** Soft full-height backdrop that centres the card (mobile-first). */
