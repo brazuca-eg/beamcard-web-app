@@ -24,6 +24,25 @@ export interface LinkResponse {
   position: number;
 }
 
+/** The single currency chosen for the whole profile's price list. */
+export type Currency = 'USD' | 'EUR' | 'UAH';
+
+/**
+ * How a service is priced:
+ * EXACT/FROM use only amount_min; RANGE uses both amount_min and amount_max.
+ */
+export type PriceType = 'EXACT' | 'FROM' | 'RANGE';
+
+/** One line of the price list: a service name (≤500 chars) + its price. */
+export interface PriceItem {
+  name: string;
+  price_type: PriceType;
+  /** The price (EXACT / FROM) or the lower bound (RANGE). */
+  amount_min?: number;
+  /** The upper bound — RANGE only. */
+  amount_max?: number;
+}
+
 /** The profile's primary location (country + city); omitted when none is set. */
 export interface Location {
   country?: string;
@@ -59,6 +78,10 @@ export interface ProfileResponse {
   affiliations?: Affiliation[];
   /** Main directions of professional activity — a plain list of strings. */
   activities?: string[];
+  /** Profile-wide currency for the price list; defaults to USD server-side. */
+  currency?: Currency;
+  /** Price list — services with names and prices, ordered. */
+  price_items?: PriceItem[];
   avatar_url?: string;
   created_at: string;
   updated_at: string;
@@ -77,6 +100,8 @@ export interface UpdateProfileRequest {
   location?: Location;
   affiliations?: Affiliation[];
   activities?: string[];
+  currency?: Currency;
+  price_items?: PriceItem[];
 }
 
 /**

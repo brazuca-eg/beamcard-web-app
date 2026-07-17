@@ -12,8 +12,11 @@ import {
   AWARD_CONTENT_TYPES,
   AWARD_MAX_BYTES,
   type Affiliation,
+  type Currency,
   type LinkResponse,
   type LinkType,
+  type PriceItem,
+  type PriceType,
   type ProfileResponse,
 } from '../api/profile';
 import { useMyProfile, useProfileMutations } from '../features/profile/useMyProfile';
@@ -22,6 +25,9 @@ import { WorkplaceMap } from '../features/profile/WorkplaceMap';
 import { ShowcasesEditor } from '../features/profile/ShowcasesEditor';
 import { LINK_PREFIX, VALUE_PLACEHOLDER, composeUrl, hasPrefix, toHandle } from '../features/profile/linkComposer';
 import { countryOptions } from '../features/profile/countries';
+import { currencyOptions, isPriceItemValid } from '../features/profile/currencies';
+
+const PRICE_TYPES: PriceType[] = ['EXACT', 'FROM', 'RANGE'];
 
 /** Shared card-panel styling so every editor section reads as a distinct block. */
 const PANEL = 'rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70 sm:p-6';
@@ -79,6 +85,39 @@ function toAffiliations(rows: WorkplaceRow[]): Affiliation[] {
 /** API activities (plain direction strings) → editor rows; always ≥1 so the form isn't empty. */
 function toActivityRows(activities: string[] | undefined): string[] {
   return activities && activities.length > 0 ? [...activities] : [''];
+}
+
+/** Editor row for one price-list line — amounts held as strings for controlled inputs. */
+interface PriceRow {
+  name: string;
+  priceType: PriceType;
+  min: string;
+  max: string;
+}
+
+const EMPTY_PRICE_ROW: PriceRow = { name: '', priceType: 'EXACT', min: '', max: '' };
+
+/** API price items → editor rows (empty when none — the price list is optional). */
+function toPriceRows(items: PriceItem[] | undefined): PriceRow[] {
+  if (!items || items.length === 0) return [];
+  return items.map((i) => ({
+    name: i.name,
+    priceType: i.price_type,
+    min: i.amount_min != null ? String(i.amount_min) : '',
+    max: i.amount_max != null ? String(i.amount_max) : '',
+  }));
+}
+
+/** One editor row → API price item, keeping only the amount(s) its type uses. */
+function rowToPriceItem(row: PriceRow): PriceItem {
+  const item: PriceItem = { name: row.name.trim(), price_type: row.priceType };
+  if (row.priceType === 'RANGE') {
+    item.amount_min = parseFloat(row.min);
+    item.amount_max = parseFloat(row.max);
+  } else {
+    item.amount_min = parseFloat(row.min); // EXACT, FROM
+  }
+  return item;
 }
 
 export function MyProfilePage() {
@@ -146,6 +185,9 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
   const [city, setCity] = useState(profile.location?.city ?? '');
   const [workplaces, setWorkplaces] = useState<WorkplaceRow[]>(() => toRows(profile.affiliations));
   const [activities, setActivities] = useState<string[]>(() => toActivityRows(profile.activities));
+  const currencyList = useMemo(() => currencyOptions(i18n.language), [i18n.language]);
+  const [currency, setCurrency] = useState<Currency>(profile.currency ?? 'USD');
+  const [priceRows, setPriceRows] = useState<PriceRow[]>(() => toPriceRows(profile.price_items));
   const [label, setLabel] = useState('');
   const [url, setUrl] = useState('');
   const [type, setType] = useState<LinkType>('GENERIC');
@@ -205,6 +247,11 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
       setError(t('editor.phoneInvalid'));
       return;
     }
+    const priceItems = priceRows.filter((r) => r.name.trim()).map(rowToPriceItem);
+    if (!priceItems.every(isPriceItemValid)) {
+      setError(t('editor.priceInvalid'));
+      return;
+    }
     updateProfile.mutate(
       {
         display_name: displayName,
@@ -213,6 +260,8 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
         location: { country, city },
         affiliations: toAffiliations(workplaces),
         activities: activities.map((a) => a.trim()).filter(Boolean),
+        currency,
+        price_items: priceItems,
       },
       { onError: (e) => setError(problemOf(e)?.detail ?? t('editor.saveError')) },
     );
@@ -233,6 +282,22 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
 
   const removeActivity = (index: number) =>
     setActivities((rows) => (rows.length === 1 ? [''] : rows.filter((_, i) => i !== index)));
+
+  const updatePriceRow = (index: number, field: keyof PriceRow, value: string) =>
+    setPriceRows((rows) => rows.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
+
+  const addPriceRow = () => setPriceRows((rows) => [...rows, { ...EMPTY_PRICE_ROW }]);
+
+  const removePriceRow = (index: number) => setPriceRows((rows) => rows.filter((_, i) => i !== index));
+
+  const movePriceRow = (index: number, dir: -1 | 1) =>
+    setPriceRows((rows) => {
+      const next = index + dir;
+      if (next < 0 || next >= rows.length) return rows;
+      const copy = [...rows];
+      [copy[index], copy[next]] = [copy[next], copy[index]];
+      return copy;
+    });
 
   const addLink = () => {
     setError(null);
@@ -512,6 +577,126 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
               className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50"
             >
               {t('editor.addActivity')}
+            </button>
+          </fieldset>
+        </section>
+
+        {/* Price list */}
+        <section className={PANEL}>
+          <fieldset className="space-y-3">
+            <legend className="text-base font-semibold text-slate-900">{t('editor.pricelist')}</legend>
+            <p className="text-xs text-slate-400">{t('editor.pricelistHint')}</p>
+
+            <label className="block text-sm font-medium text-slate-700 sm:max-w-xs">
+              {t('editor.currency')}
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value as Currency)}
+                className={`mt-1 bg-white ${INPUT}`}
+              >
+                {currencyList.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {priceRows.map((row, i) => (
+              <div key={i} className="space-y-2 rounded-xl border border-slate-200 p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-500">{t('editor.priceItemN', { n: i + 1 })}</span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      aria-label={t('editor.priceMoveUp', { n: i + 1 })}
+                      onClick={() => movePriceRow(i, -1)}
+                      disabled={i === 0}
+                      className="px-2 text-slate-500 transition-transform duration-150 hover:-translate-y-0.5 hover:text-slate-900 active:scale-90 disabled:opacity-30 disabled:hover:translate-y-0"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={t('editor.priceMoveDown', { n: i + 1 })}
+                      onClick={() => movePriceRow(i, 1)}
+                      disabled={i === priceRows.length - 1}
+                      className="px-2 text-slate-500 transition-transform duration-150 hover:translate-y-0.5 hover:text-slate-900 active:scale-90 disabled:opacity-30 disabled:hover:translate-y-0"
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={t('editor.removePriceItem', { n: i + 1 })}
+                      onClick={() => removePriceRow(i)}
+                      className="text-sm text-red-600 hover:text-red-800"
+                    >
+                      {t('editor.remove')}
+                    </button>
+                  </div>
+                </div>
+                <input
+                  aria-label={t('editor.priceNameAria', { n: i + 1 })}
+                  placeholder={t('editor.priceNamePlaceholder')}
+                  value={row.name}
+                  maxLength={500}
+                  onChange={(e) => updatePriceRow(i, 'name', e.target.value)}
+                  className={INPUT}
+                />
+                <div className="flex gap-2">
+                  <select
+                    aria-label={t('editor.priceTypeAria', { n: i + 1 })}
+                    value={row.priceType}
+                    onChange={(e) => updatePriceRow(i, 'priceType', e.target.value)}
+                    className={`min-w-0 flex-1 bg-white ${INPUT}`}
+                  >
+                    {PRICE_TYPES.map((pt) => (
+                      <option key={pt} value={pt}>
+                        {t(`priceTypes.${pt}`)}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    inputMode="decimal"
+                    aria-label={
+                      row.priceType === 'RANGE'
+                        ? t('editor.priceFromAria', { n: i + 1 })
+                        : t('editor.priceAmountAria', { n: i + 1 })
+                    }
+                    placeholder={
+                      row.priceType === 'RANGE' || row.priceType === 'FROM'
+                        ? t('editor.priceFromPlaceholder')
+                        : t('editor.priceAmountPlaceholder')
+                    }
+                    value={row.min}
+                    onChange={(e) => updatePriceRow(i, 'min', e.target.value)}
+                    className={`min-w-0 flex-1 ${INPUT}`}
+                  />
+                  {row.priceType === 'RANGE' && (
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      inputMode="decimal"
+                      aria-label={t('editor.priceToAria', { n: i + 1 })}
+                      placeholder={t('editor.priceToPlaceholder')}
+                      value={row.max}
+                      onChange={(e) => updatePriceRow(i, 'max', e.target.value)}
+                      className={`min-w-0 flex-1 ${INPUT}`}
+                    />
+                  )}
+                </div>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addPriceRow}
+              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50"
+            >
+              {t('editor.addPriceItem')}
             </button>
           </fieldset>
         </section>

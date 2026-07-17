@@ -214,6 +214,94 @@ describe('MyProfilePage', () => {
     );
   });
 
+  it('adds a price item and saves it with the chosen currency', async () => {
+    getMyProfileMock.mockResolvedValue(PROFILE);
+    vi.mocked(updateMyProfile).mockResolvedValue(PROFILE);
+    renderPage();
+    await screen.findByDisplayValue('Alice');
+
+    await userEvent.click(screen.getByRole('button', { name: /add service/i }));
+    await userEvent.type(screen.getByLabelText('Service name 1'), 'Consultation');
+    await userEvent.type(screen.getByLabelText('Price 1'), '50');
+    await userEvent.selectOptions(screen.getByLabelText('Currency'), 'EUR');
+    await userEvent.click(screen.getByRole('button', { name: /save profile/i }));
+
+    await waitFor(() =>
+      expect(vi.mocked(updateMyProfile)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          currency: 'EUR',
+          price_items: [{ name: 'Consultation', price_type: 'EXACT', amount_min: 50 }],
+        }),
+        expect.anything(),
+      ),
+    );
+  });
+
+  it('saves a price range with two amounts', async () => {
+    getMyProfileMock.mockResolvedValue(PROFILE);
+    vi.mocked(updateMyProfile).mockResolvedValue(PROFILE);
+    renderPage();
+    await screen.findByDisplayValue('Alice');
+
+    await userEvent.click(screen.getByRole('button', { name: /add service/i }));
+    await userEvent.type(screen.getByLabelText('Service name 1'), 'Full project');
+    await userEvent.selectOptions(screen.getByLabelText('Price type 1'), 'RANGE');
+    await userEvent.type(screen.getByLabelText('Price from 1'), '500');
+    await userEvent.type(screen.getByLabelText('Price to 1'), '1200');
+    await userEvent.click(screen.getByRole('button', { name: /save profile/i }));
+
+    await waitFor(() =>
+      expect(vi.mocked(updateMyProfile)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          price_items: [{ name: 'Full project', price_type: 'RANGE', amount_min: 500, amount_max: 1200 }],
+        }),
+        expect.anything(),
+      ),
+    );
+  });
+
+  it('reorders price items with the up/down controls', async () => {
+    getMyProfileMock.mockResolvedValue(PROFILE);
+    vi.mocked(updateMyProfile).mockResolvedValue(PROFILE);
+    renderPage();
+    await screen.findByDisplayValue('Alice');
+
+    await userEvent.click(screen.getByRole('button', { name: /add service/i }));
+    await userEvent.type(screen.getByLabelText('Service name 1'), 'First');
+    await userEvent.type(screen.getByLabelText('Price 1'), '10');
+    await userEvent.click(screen.getByRole('button', { name: /add service/i }));
+    await userEvent.type(screen.getByLabelText('Service name 2'), 'Second');
+    await userEvent.type(screen.getByLabelText('Price 2'), '20');
+
+    // Move the second row above the first, then save.
+    await userEvent.click(screen.getByRole('button', { name: /move service 2 up/i }));
+    await userEvent.click(screen.getByRole('button', { name: /save profile/i }));
+
+    await waitFor(() =>
+      expect(vi.mocked(updateMyProfile)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          price_items: [
+            { name: 'Second', price_type: 'EXACT', amount_min: 20 },
+            { name: 'First', price_type: 'EXACT', amount_min: 10 },
+          ],
+        }),
+        expect.anything(),
+      ),
+    );
+  });
+
+  it('adds and removes price-item rows', async () => {
+    getMyProfileMock.mockResolvedValue(PROFILE);
+    renderPage();
+    await screen.findByDisplayValue('Alice');
+
+    expect(screen.queryByLabelText('Service name 1')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /add service/i }));
+    expect(screen.getByLabelText('Service name 1')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /remove service 1/i }));
+    expect(screen.queryByLabelText('Service name 1')).not.toBeInTheDocument();
+  });
+
   it('edits an existing link in place', async () => {
     getMyProfileMock.mockResolvedValue(PROFILE);
     updateLinkMock.mockResolvedValue({ ...PROFILE.links[0], label: 'Home', url: 'https://alice.dev' });
