@@ -35,8 +35,26 @@ export function LandingPage({ forceShow = false }: { forceShow?: boolean }) {
       <Steps />
       <FinalCta />
 
-      <footer className="border-t border-slate-100 py-8 text-center text-xs text-slate-400">
-        {t('landing.footer')} · <span>Demo photos: Pexels</span>
+      <footer className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 border-t border-slate-100 px-4 py-8 text-center text-xs text-slate-400">
+        <Link to="/privacy" className="text-slate-500 hover:text-slate-900 hover:underline">
+          {t('nav.privacy')}
+        </Link>
+        <span>·</span>
+        <Link to="/terms" className="text-slate-500 hover:text-slate-900 hover:underline">
+          {t('nav.terms')}
+        </Link>
+        <span>·</span>
+        <Link to="/cookies" className="text-slate-500 hover:text-slate-900 hover:underline">
+          {t('nav.cookies')}
+        </Link>
+        <span>·</span>
+        <Link to="/accessibility" className="text-slate-500 hover:text-slate-900 hover:underline">
+          {t('nav.accessibility')}
+        </Link>
+        <span>·</span>
+        <span>{t('landing.footer')}</span>
+        <span>·</span>
+        <span>Demo photos: Pexels</span>
       </footer>
     </div>
   );
