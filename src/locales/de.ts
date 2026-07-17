@@ -6,6 +6,10 @@ export const de: Resources = {
     editCard: 'Karte bearbeiten',
     viewPublic: 'Öffentlich ansehen',
     about: 'Über Beamcard',
+    privacy: 'Datenschutz',
+    terms: 'AGB',
+    cookies: 'Cookie-Einstellungen',
+    accessibility: 'Barrierefreiheit',
   },
   lang: {
     label: 'Sprache',

@@ -6,6 +6,10 @@ export const en = {
     editCard: 'Edit card',
     viewPublic: 'View public',
     about: 'About Beamcard',
+    privacy: 'Privacy Policy',
+    terms: 'Terms',
+    cookies: 'Cookie preferences',
+    accessibility: 'Accessibility',
   },
   lang: {
     label: 'Language',

@@ -1,6 +1,5 @@
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { MarketingHeader } from '../components/MarketingHeader';
 import { LoginForm } from '../features/auth/LoginForm';
 import { GoogleAuthSection } from '../features/auth/GoogleAuthSection';
 import { useAuthStore } from '../stores/authStore';
@@ -24,10 +23,8 @@ export function LoginPage() {
   }
 
   return (
-    <>
-      <MarketingHeader />
-      <div className="max-w-md mx-auto mt-12 p-6">
-        <h1 className="text-2xl font-bold text-slate-900">{t('auth.welcomeBack')}</h1>
+    <div className="max-w-md mx-auto mt-12 p-6">
+      <h1 className="text-2xl font-bold text-slate-900">{t('auth.welcomeBack')}</h1>
       <p className="text-sm text-slate-600 mb-6 italic">{t('auth.tagline')}</p>
       <LoginForm onSuccess={handleSuccess} />
       <GoogleAuthSection text="signin_with" onSuccess={handleSuccess} />
@@ -42,7 +39,6 @@ export function LoginPage() {
           {t('auth.createAccount')}
         </Link>
       </p>
-      </div>
-    </>
+    </div>
   );
 }

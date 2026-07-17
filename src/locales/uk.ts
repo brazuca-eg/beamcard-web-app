@@ -6,6 +6,10 @@ export const uk: Resources = {
     editCard: 'Редагувати',
     viewPublic: 'Публічний вигляд',
     about: 'Про Beamcard',
+    privacy: 'Конфіденційність',
+    terms: 'Умови',
+    cookies: 'Налаштування cookie',
+    accessibility: 'Доступність',
   },
   lang: {
     label: 'Мова',
