@@ -9,7 +9,9 @@ import {
   publicVcardUrl,
   type Affiliation,
   type AwardResponse,
+  type Currency,
   type LinkResponse,
+  type PriceItem,
   type ProfileResponse,
 } from '../api/profile';
 import { usePublicProfile } from '../features/profile/usePublicProfile';
@@ -17,6 +19,7 @@ import { mapQuery } from '../features/profile/maps';
 import { WorkplaceMap } from '../features/profile/WorkplaceMap';
 import { getPublicShowcases, type Showcase } from '../features/profile/showcases';
 import { localizeCountry } from '../features/profile/countries';
+import { formatAmount } from '../features/profile/currencies';
 import { SocialGlyph, hasSocialIcon } from '../features/profile/socialIcons';
 import { Accordion } from '../components/Accordion';
 
@@ -78,6 +81,8 @@ function Card({ profile }: { profile: ProfileResponse }) {
   const name = profile.display_name ?? `@${profile.username}`;
   const workplaces = profile.affiliations ?? [];
   const activities = profile.activities ?? [];
+  const priceItems = profile.price_items ?? [];
+  const currency = profile.currency ?? 'USD';
   const awards = [...(profile.awards ?? [])].sort((a, b) => a.position - b.position);
 
   const { data: showcasesData, isPending: showcasesPending } = useQuery({
@@ -90,6 +95,7 @@ function Card({ profile }: { profile: ProfileResponse }) {
   // profile with a single section doesn't look empty; the rest stay collapsed to
   // keep the page short. Gated on the showcases query so "first" is computed once.
   const sections: string[] = [];
+  if (priceItems.length) sections.push('pricelist');
   if (workplaces.length) sections.push('workplaces');
   if (showcases.length) sections.push('showcases');
   if (awards.length) sections.push('awards');
@@ -113,6 +119,15 @@ function Card({ profile }: { profile: ProfileResponse }) {
             {activities.length > 0 && <ActivitiesCard activities={activities} />}
             {!showcasesPending && (
               <>
+                {priceItems.length > 0 && (
+                  <Accordion
+                    title={t('publicCard.pricelist')}
+                    count={priceItems.length}
+                    defaultOpen={firstOpen === 'pricelist'}
+                  >
+                    <PricelistList items={priceItems} currency={currency} lang={profile.locale} />
+                  </Accordion>
+                )}
                 {workplaces.length > 0 && (
                   <Accordion
                     title={t('publicCard.whereToFind')}
@@ -267,6 +282,32 @@ function ActivitiesCard({ activities }: { activities: string[] }) {
         ))}
       </ul>
     </section>
+  );
+}
+
+/** The price list: service name on the left, formatted price on the right. */
+function PricelistList({ items, currency, lang }: { items: PriceItem[]; currency: Currency; lang: string }) {
+  const { t } = useTranslation();
+  const fmt = (n: number | undefined) => formatAmount(n ?? 0, currency, lang);
+  const priceLabel = (item: PriceItem): string => {
+    switch (item.price_type) {
+      case 'FROM':
+        return t('publicCard.priceFrom', { amount: fmt(item.amount_min) });
+      case 'RANGE':
+        return `${fmt(item.amount_min)} – ${fmt(item.amount_max)}`;
+      default:
+        return fmt(item.amount_min);
+    }
+  };
+  return (
+    <ul className="divide-y divide-slate-100">
+      {items.map((item, i) => (
+        <li key={i} className="flex items-baseline justify-between gap-4 py-2.5 first:pt-0 last:pb-0">
+          <span className="min-w-0 break-words text-sm text-slate-700">{item.name}</span>
+          <span className="shrink-0 whitespace-nowrap text-sm font-semibold text-slate-900">{priceLabel(item)}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 

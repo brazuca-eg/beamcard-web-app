@@ -183,6 +183,35 @@ describe('PublicProfilePage', () => {
     expect(screen.getByText('2 / 2')).toBeInTheDocument();
   });
 
+  it('renders the price list with amounts formatted in the profile currency', async () => {
+    getPublicProfileMock.mockResolvedValue({
+      id: 'uuid',
+      username: 'alice',
+      display_name: 'Alice',
+      currency: 'EUR',
+      price_items: [
+        { name: 'Consultation', price_type: 'EXACT', amount_min: 50 },
+        { name: 'Full project', price_type: 'RANGE', amount_min: 500, amount_max: 1200 },
+        { name: 'Quick call', price_type: 'FROM', amount_min: 20 },
+      ],
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+      links: [],
+      awards: [],
+      locale: 'en',
+    });
+
+    renderAt('/@alice');
+
+    // The sole "Price list" section is open by default.
+    expect(await screen.findByText('Price list')).toBeInTheDocument();
+    expect(screen.getByText('Consultation')).toBeInTheDocument();
+    expect(screen.getByText('€50')).toBeInTheDocument();
+    expect(screen.getByText('Full project')).toBeInTheDocument();
+    expect(screen.getByText('€500 – €1,200')).toBeInTheDocument();
+    expect(screen.getByText('from €20')).toBeInTheDocument();
+  });
+
   it('shows a not-found state on 404 profile_not_found', async () => {
     getPublicProfileMock.mockRejectedValue(
       new ApiError(404, 'Not Found', { code: 'profile_not_found' }),
