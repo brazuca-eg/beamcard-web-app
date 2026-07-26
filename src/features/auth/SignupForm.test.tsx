@@ -2,8 +2,9 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 import { SignupForm } from './SignupForm';
-import { signup, type AuthResponse } from '../../api/auth';
+import { signup, type AuthResponse, type SignupResponse } from '../../api/auth';
 import { ApiError } from '../../api/client';
 import i18n from '../../i18n';
 
@@ -12,20 +13,38 @@ import i18n from '../../i18n';
 // direct refs, bypassing the namespace object.
 vi.mock('../../api/auth', () => ({
   signup: vi.fn(),
+  resendVerificationEmail: vi.fn(),
 }));
 
 const signupMock = vi.mocked(signup);
 
-function renderForm(onSuccess = vi.fn()) {
+const AUTH: AuthResponse = {
+  access_token: 'token.value',
+  refresh_token: 'refresh.value',
+  token_type: 'Bearer',
+  expires_in: 900,
+  user: { id: 'uuid', email: 'alice@example.com', username: 'alice', plan: 'free', locale: 'en' },
+};
+
+/** A signup response that auto-logs in (verification disabled). */
+const authenticated = (auth: AuthResponse = AUTH): SignupResponse => ({
+  verification_required: false,
+  email: auth.user.email,
+  auth,
+});
+
+function renderForm(onAuthenticated = vi.fn()) {
   const client = new QueryClient({
     defaultOptions: { mutations: { retry: false } },
   });
   render(
     <QueryClientProvider client={client}>
-      <SignupForm onSuccess={onSuccess} />
+      <MemoryRouter>
+        <SignupForm onAuthenticated={onAuthenticated} />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
-  return { onSuccess };
+  return { onAuthenticated };
 }
 
 describe('SignupForm', () => {
@@ -38,13 +57,9 @@ describe('SignupForm', () => {
   });
 
   it('switches the UI language live and submits the chosen locale', async () => {
-    signupMock.mockResolvedValue({
-      access_token: 't',
-      refresh_token: 'r',
-      token_type: 'Bearer',
-      expires_in: 900,
-      user: { id: 'uuid', email: 'alice@example.com', username: 'alice', plan: 'free', locale: 'de' },
-    });
+    signupMock.mockResolvedValue(
+      authenticated({ ...AUTH, user: { ...AUTH.user, locale: 'de' } }),
+    );
 
     renderForm();
     await userEvent.type(screen.getByLabelText(/email/i), 'alice@example.com');
@@ -71,25 +86,16 @@ describe('SignupForm', () => {
     expect(signupMock).not.toHaveBeenCalled();
   });
 
-  it('calls signup API and reports success', async () => {
-    const fakeResponse: AuthResponse = {
-      access_token: 'token.value',
-      refresh_token: 'refresh.value',
-      token_type: 'Bearer',
-      expires_in: 900,
-      user: { id: 'uuid', email: 'alice@example.com', username: 'alice', plan: 'free', locale: 'en' },
-    };
-    signupMock.mockResolvedValue(fakeResponse);
+  it('auto-logs in when verification is disabled', async () => {
+    signupMock.mockResolvedValue(authenticated());
 
-    const { onSuccess } = renderForm();
+    const { onAuthenticated } = renderForm();
     await userEvent.type(screen.getByLabelText(/email/i), 'alice@example.com');
     await userEvent.type(screen.getByLabelText(/username/i), 'alice');
     await userEvent.type(screen.getByLabelText(/password/i), 'correcthorsebatterystaple');
     await userEvent.click(screen.getByRole('button', { name: /create account/i }));
 
     await waitFor(() => {
-      // TanStack Query 5 passes a second arg (mutation context) to mutationFn;
-      // expect.anything() tolerates it while still pinning the payload shape.
       expect(signupMock).toHaveBeenCalledWith(
         {
           email: 'alice@example.com',
@@ -99,11 +105,22 @@ describe('SignupForm', () => {
         },
         expect.anything(),
       );
-      // TanStack Query 5 calls onSuccess with (data, variables, context, mutateOptions).
-      // We only care about `data` — assert on the first argument.
-      expect(onSuccess).toHaveBeenCalled();
-      expect(onSuccess.mock.calls[0][0]).toEqual(fakeResponse);
+      expect(onAuthenticated).toHaveBeenCalled();
+      expect(onAuthenticated.mock.calls[0][0]).toEqual(AUTH); // the auth payload, not the wrapper
     });
+  });
+
+  it('shows check-your-inbox and does NOT log in when verification is required', async () => {
+    signupMock.mockResolvedValue({ verification_required: true, email: 'alice@example.com', auth: null });
+
+    const { onAuthenticated } = renderForm();
+    await userEvent.type(screen.getByLabelText(/email/i), 'alice@example.com');
+    await userEvent.type(screen.getByLabelText(/username/i), 'alice');
+    await userEvent.type(screen.getByLabelText(/password/i), 'correcthorsebatterystaple');
+    await userEvent.click(screen.getByRole('button', { name: /create account/i }));
+
+    expect(await screen.findByText(/check your inbox/i)).toBeInTheDocument();
+    expect(onAuthenticated).not.toHaveBeenCalled();
   });
 
   it('maps a 409 email_taken response into a field-level error', async () => {

@@ -44,6 +44,8 @@ export interface AccountResponse {
   created_at: string;
   /** False for Google-only accounts (no password) — used to hide the change-password panel. */
   has_password: boolean;
+  /** Whether the email address has been confirmed — drives the "verify your email" banner. */
+  email_verified: boolean;
 }
 
 /**
@@ -52,8 +54,18 @@ export interface AccountResponse {
  */
 export type { ApiProblem, ProblemCode } from './problem';
 
-export function signup(req: SignupRequest): Promise<AuthResponse> {
-  return apiFetch<AuthResponse>('/auth/signup', {
+/**
+ * Signup outcome. When `verification_required` is true the user must verify their email before
+ * signing in, so `auth` is null (no session). Otherwise `auth` carries the token pair (auto-login).
+ */
+export interface SignupResponse {
+  verification_required: boolean;
+  email: string;
+  auth: AuthResponse | null;
+}
+
+export function signup(req: SignupRequest): Promise<SignupResponse> {
+  return apiFetch<SignupResponse>('/auth/signup', {
     method: 'POST',
     body: JSON.stringify(req),
   });
@@ -114,6 +126,30 @@ export function changePassword(req: {
  */
 export function deleteAccount(): Promise<void> {
   return apiFetch<void>('/auth/me', { method: 'DELETE' });
+}
+
+/** POST /auth/email/verify/request — re-send the verification email to the signed-in user. 202. */
+export function requestEmailVerification(): Promise<void> {
+  return apiFetch<void>('/auth/email/verify/request', { method: 'POST' });
+}
+
+/** POST /auth/email/verify/confirm — confirm the email using the emailed token. Public. 204 on success. */
+export function confirmEmailVerification(token: string): Promise<void> {
+  return apiFetch<void>('/auth/email/verify/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ token }),
+  });
+}
+
+/**
+ * POST /auth/email/verify/resend — public resend by email, for a blocked/logged-out user.
+ * Always 202 (no account enumeration).
+ */
+export function resendVerificationEmail(email: string): Promise<void> {
+  return apiFetch<void>('/auth/email/verify/resend', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
 }
 
 /** POST /auth/refresh — exchange a refresh token for a fresh access + refresh pair (rotation). */

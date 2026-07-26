@@ -72,6 +72,12 @@ export const de: Resources = {
     passwordUpdatedTitle: 'Passwort aktualisiert',
     passwordUpdatedBody: 'Dein Passwort wurde geändert. Du kannst dich jetzt damit anmelden.',
     goToSignIn: 'Zur Anmeldung',
+    checkInboxTitle: 'Prüfe deinen Posteingang',
+    checkInboxBody:
+      'Wir haben einen Bestätigungslink an {{email}} gesendet. Klicke ihn, um dein Konto zu aktivieren, und melde dich dann an.',
+    resendVerification: 'Bestätigungs-E-Mail erneut senden',
+    verificationResent: 'Bestätigungs-E-Mail gesendet.',
+    emailNotVerified: 'Bitte bestätige deine E-Mail-Adresse, bevor du dich anmeldest.',
   },
   account: {
     loading: 'Konto wird geladen…',
@@ -112,6 +118,19 @@ export const de: Resources = {
     deleteConfirmButton: 'Endgültig löschen',
     deleting: 'Wird gelöscht…',
     deleteError: 'Konto konnte nicht gelöscht werden. Bitte versuche es erneut.',
+  },
+  verify: {
+    bannerText: 'Bitte bestätige deine E-Mail-Adresse, um dein Konto zu sichern.',
+    resend: 'E-Mail erneut senden',
+    resending: 'Wird gesendet…',
+    resent: 'Bestätigungs-E-Mail gesendet.',
+    dismiss: 'Schließen',
+    title: 'E-Mail bestätigen',
+    checking: 'E-Mail wird bestätigt…',
+    success: 'Deine E-Mail ist bestätigt. Danke!',
+    error: 'Dieser Bestätigungslink ist ungültig oder abgelaufen. Melde dich an und sende ihn im Konto erneut.',
+    goToAccount: 'Zum Konto',
+    goToSignIn: 'Zur Anmeldung',
   },
   editor: {
     loading: 'Deine Karte wird geladen…',
