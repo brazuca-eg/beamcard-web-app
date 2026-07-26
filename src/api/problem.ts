@@ -18,6 +18,8 @@ export type ProblemCode =
   | 'email_taken'
   | 'username_taken'
   | 'invalid_credentials'
+  | 'incorrect_password'
+  | 'password_not_set'
   | 'account_inactive'
   | 'user_not_found'
   | 'invalid_google_token'

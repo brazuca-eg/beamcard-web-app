@@ -42,6 +42,8 @@ export interface AccountResponse {
   plan: 'free' | 'premium';
   locale: string;
   created_at: string;
+  /** False for Google-only accounts (no password) — used to hide the change-password panel. */
+  has_password: boolean;
 }
 
 /**
@@ -89,6 +91,29 @@ export function updateAccount(patch: { username?: string; locale?: string }): Pr
     method: 'PATCH',
     body: JSON.stringify(patch),
   });
+}
+
+/**
+ * POST /auth/me/password — change password. Requires the current password;
+ * revokes all other sessions and returns a fresh token pair for this device, so
+ * the caller must persist the new tokens (setSession).
+ */
+export function changePassword(req: {
+  current_password: string;
+  new_password: string;
+}): Promise<AuthResponse> {
+  return apiFetch<AuthResponse>('/auth/me/password', {
+    method: 'POST',
+    body: JSON.stringify(req),
+  });
+}
+
+/**
+ * DELETE /auth/me — permanently delete the account (soft-delete + revoke tokens
+ * + release the handle). 204 on success. Delete the profile (card + media) first.
+ */
+export function deleteAccount(): Promise<void> {
+  return apiFetch<void>('/auth/me', { method: 'DELETE' });
 }
 
 /** POST /auth/refresh — exchange a refresh token for a fresh access + refresh pair (rotation). */

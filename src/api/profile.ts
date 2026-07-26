@@ -103,6 +103,15 @@ export function getPublicProfile(username: string): Promise<ProfileResponse> {
   return apiFetch<ProfileResponse>(`/profiles/@${encodeURIComponent(username)}`);
 }
 
+/**
+ * DELETE /me/profile — permanently delete the caller's card: all rows (cascade)
+ * plus every stored image (avatar, certificates, showcases). 204 on success.
+ * Idempotent. Call this before deleting the account (needs a still-valid token).
+ */
+export function deleteMyProfile(): Promise<void> {
+  return apiFetch<void>('/me/profile', { method: 'DELETE' });
+}
+
 /* ------------------------------- links -------------------------------- */
 
 /** POST body for a new link. */
