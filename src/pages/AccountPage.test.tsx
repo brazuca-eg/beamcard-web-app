@@ -30,6 +30,7 @@ const ACCOUNT = {
   locale: 'en',
   created_at: '2026-01-01T00:00:00Z',
   has_password: true,
+  email_verified: true,
 };
 
 function renderPage() {
