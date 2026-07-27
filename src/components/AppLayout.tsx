@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../stores/authStore';
 import { logout as logoutApi } from '../api/auth';
 import { useCurrentAccount } from '../features/auth/useCurrentAccount';
+import { EmailVerificationBanner } from './EmailVerificationBanner';
 
 /**
  * Chrome for the signed-in app (Account + Editor): a consistent branded header
@@ -79,6 +80,8 @@ export function AppLayout() {
           )}
         </nav>
       </header>
+
+      <EmailVerificationBanner />
 
       <main className="flex-1">
         <Outlet />

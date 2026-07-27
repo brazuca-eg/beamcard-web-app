@@ -26,7 +26,7 @@ export function SignupPage() {
     <div className="max-w-md mx-auto mt-12 p-6">
       <h1 className="text-2xl font-bold text-slate-900">{t('auth.createTitle')}</h1>
       <p className="text-sm text-slate-600 mb-6 italic">{t('auth.tagline')}</p>
-      <SignupForm onSuccess={handleSuccess} />
+      <SignupForm onAuthenticated={handleSuccess} />
       <GoogleAuthSection text="signup_with" onSuccess={handleSuccess} />
       <p className="mt-4 text-sm text-slate-600">
         {t('auth.alreadyHaveAccount')}{' '}

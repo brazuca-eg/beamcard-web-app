@@ -1,25 +1,34 @@
 import { useId, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { ApiError } from '../../api/client';
-import { signup, type AuthResponse } from '../../api/auth';
+import { resendVerificationEmail, signup, type AuthResponse } from '../../api/auth';
 import { applyFieldErrors, problemOf } from '../../api/problem';
 import { LANG_FLAGS, SUPPORTED_LANGS, type Lang } from '../../i18n';
 import { signupSchema, type SignupFormValues } from './schema';
 
 interface Props {
-  onSuccess: (response: AuthResponse) => void;
+  /** Called only when signup returns a session (email verification disabled). */
+  onAuthenticated: (response: AuthResponse) => void;
 }
 
-export function SignupForm({ onSuccess }: Props) {
+export function SignupForm({ onAuthenticated }: Props) {
   const { t, i18n } = useTranslation();
   const emailId = useId();
   const usernameId = useId();
   const passwordId = useId();
   const localeId = useId();
   const [formError, setFormError] = useState<string | null>(null);
+  const [sentTo, setSentTo] = useState<string | null>(null); // set when verification is required
+  const [resent, setResent] = useState(false);
+
+  const resend = useMutation({
+    mutationFn: () => resendVerificationEmail(sentTo ?? ''),
+    onSuccess: () => setResent(true),
+  });
 
   const detected = (SUPPORTED_LANGS as readonly string[]).includes(i18n.language)
     ? (i18n.language as Lang)
@@ -40,7 +49,13 @@ export function SignupForm({ onSuccess }: Props) {
 
   const mutation = useMutation({
     mutationFn: signup,
-    onSuccess,
+    onSuccess: (res) => {
+      if (res.verification_required || !res.auth) {
+        setSentTo(res.email); // show "check your inbox" — no session issued
+      } else {
+        onAuthenticated(res.auth); // verification disabled → auto-login
+      }
+    },
     onError: (err) => {
       const problem = problemOf(err);
       // Map backend 409s into per-field errors so the UI feels integrated.
@@ -64,6 +79,35 @@ export function SignupForm({ onSuccess }: Props) {
   });
 
   const submitting = mutation.isPending;
+
+  // Verification required: account created, no session — tell them to check their inbox.
+  if (sentTo) {
+    return (
+      <div className="space-y-3">
+        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3">
+          <h2 className="text-base font-semibold text-green-900">{t('auth.checkInboxTitle')}</h2>
+          <p className="mt-1 text-sm text-green-800">{t('auth.checkInboxBody', { email: sentTo })}</p>
+        </div>
+        {resent ? (
+          <p className="text-sm text-slate-600">{t('auth.verificationResent')}</p>
+        ) : (
+          <button
+            type="button"
+            onClick={() => resend.mutate()}
+            disabled={resend.isPending}
+            className="text-sm text-indigo-600 hover:underline disabled:opacity-50"
+          >
+            {resend.isPending ? t('auth.sending') : t('auth.resendVerification')}
+          </button>
+        )}
+        <p className="text-sm text-slate-600">
+          <Link className="text-indigo-600 hover:underline" to="/login">
+            {t('auth.goToSignIn')}
+          </Link>
+        </p>
+      </div>
+    );
+  }
 
   return (
     <form

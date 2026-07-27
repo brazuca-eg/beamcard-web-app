@@ -8,6 +8,7 @@ import { ApiError } from '../../api/client';
 
 vi.mock('../../api/auth', () => ({
   login: vi.fn(),
+  resendVerificationEmail: vi.fn(),
 }));
 
 const loginMock = vi.mocked(login);
@@ -72,6 +73,18 @@ describe('LoginForm', () => {
     await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
     expect(await screen.findByText(/invalid email or password/i)).toBeInTheDocument();
+  });
+
+  it('shows a verify-your-email message and a resend action on 403 email_not_verified', async () => {
+    loginMock.mockRejectedValue(new ApiError(403, 'Forbidden', { code: 'email_not_verified' }));
+
+    renderForm();
+    await userEvent.type(screen.getByLabelText(/email/i), 'alice@example.com');
+    await userEvent.type(screen.getByLabelText(/password/i), 'correcthorsebatterystaple');
+    await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
+
+    expect(await screen.findByText(/verify your email address before signing in/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /resend verification email/i })).toBeInTheDocument();
   });
 
   it('shows the inactive-account message on 403', async () => {

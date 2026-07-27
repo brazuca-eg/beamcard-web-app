@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../stores/authStore';
-import { updateAccount, type AccountResponse } from '../api/auth';
-import { getMyProfile, getMyProfileQr, publicCardUrl } from '../api/profile';
+import { changePassword, deleteAccount, updateAccount, type AccountResponse } from '../api/auth';
+import { deleteMyProfile, getMyProfile, getMyProfileQr, publicCardUrl } from '../api/profile';
 import { problemOf } from '../api/problem';
 import { useCurrentAccount } from '../features/auth/useCurrentAccount';
 import { useMyProfile } from '../features/profile/useMyProfile';
@@ -34,8 +34,10 @@ const PLACEHOLDER_HANDLE = /^user_[0-9a-f]{8}$/i;
 
 function AccountDetails({ account }: { account: AccountResponse }) {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const setSession = useAuthStore((s) => s.setSession);
+  const clearSession = useAuthStore((s) => s.clear);
   const { data: profile } = useMyProfile();
 
   const currentLang = (account.locale ?? i18n.language) as Lang;
@@ -45,6 +47,18 @@ function AccountDetails({ account }: { account: AccountResponse }) {
   const [saved, setSaved] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Change-password form
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [pwError, setPwError] = useState<string | null>(null);
+  const [pwSaved, setPwSaved] = useState(false);
+
+  // Delete-account confirmation
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const trimmed = handle.trim();
   const dirty = trimmed !== account.username || lang !== currentLang;
@@ -95,6 +109,60 @@ function AccountDetails({ account }: { account: AccountResponse }) {
       );
     },
   });
+
+  const pwValid = newPassword.length >= 12 && newPassword === confirmPassword && currentPassword.length > 0;
+
+  const changePw = useMutation({
+    mutationFn: () => changePassword({ current_password: currentPassword, new_password: newPassword }),
+    onSuccess: (res) => {
+      setSession(res.access_token, res.refresh_token); // fresh pair keeps this device signed in
+      setPwError(null);
+      setPwSaved(true);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    },
+    onError: (e) => {
+      setPwSaved(false);
+      const code = problemOf(e)?.code;
+      setPwError(
+        code === 'incorrect_password'
+          ? t('account.currentPasswordWrong')
+          : code === 'password_not_set'
+            ? t('account.passwordNotSet')
+            : code === 'validation_failed'
+              ? t('account.passwordTooShort')
+              : t('account.passwordChangeError'),
+      );
+    },
+  });
+
+  const del = useMutation({
+    // Delete the card + its media first (needs a valid token), then the account.
+    mutationFn: async () => {
+      await deleteMyProfile();
+      await deleteAccount();
+    },
+    onSuccess: () => {
+      clearSession();
+      navigate('/', { replace: true });
+    },
+    onError: (e) => setDeleteError(problemOf(e)?.detail ?? t('account.deleteError')),
+  });
+
+  const submitPassword = () => {
+    setPwSaved(false);
+    if (newPassword.length < 12) {
+      setPwError(t('account.passwordTooShort'));
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPwError(t('account.passwordMismatch'));
+      return;
+    }
+    setPwError(null);
+    changePw.mutate();
+  };
 
   return (
     <>
@@ -219,6 +287,151 @@ function AccountDetails({ account }: { account: AccountResponse }) {
             >
               {save.isPending ? t('account.saving') : t('account.save')}
             </button>
+          </section>
+
+          {/* Security — change password. Hidden for Google-only accounts (no password to change). */}
+          {account.has_password && (
+          <section className={PANEL}>
+            <h2 className="text-base font-semibold text-slate-900">{t('account.security')}</h2>
+            <p className="mt-0.5 text-xs text-slate-400">{t('account.securityHint')}</p>
+
+            {pwError && (
+              <p
+                className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+                role="alert"
+              >
+                {pwError}
+              </p>
+            )}
+            {pwSaved && (
+              <p className="mt-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+                {t('account.passwordChanged')}
+              </p>
+            )}
+
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="current-password">
+                  {t('account.currentPassword')}
+                </label>
+                <input
+                  id="current-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={currentPassword}
+                  onChange={(e) => {
+                    setCurrentPassword(e.target.value);
+                    setPwSaved(false);
+                  }}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="new-password">
+                  {t('account.newPassword')}
+                </label>
+                <input
+                  id="new-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={newPassword}
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    setPwSaved(false);
+                  }}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <p className="mt-1 text-xs text-slate-400">{t('account.passwordRule')}</p>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="confirm-password">
+                  {t('account.confirmPassword')}
+                </label>
+                <input
+                  id="confirm-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    setPwSaved(false);
+                  }}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              disabled={!pwValid || changePw.isPending}
+              onClick={submitPassword}
+              className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {changePw.isPending ? t('account.saving') : t('account.changePasswordButton')}
+            </button>
+          </section>
+          )}
+
+          {/* Danger zone — delete account */}
+          <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-red-200/70 sm:p-6">
+            <h2 className="text-base font-semibold text-red-700">{t('account.dangerZone')}</h2>
+            <p className="mt-0.5 text-sm text-slate-500">{t('account.deleteHint')}</p>
+
+            {!confirmingDelete ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmingDelete(true);
+                  setDeleteError(null);
+                }}
+                className="mt-4 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50"
+              >
+                {t('account.deleteAccount')}
+              </button>
+            ) : (
+              <div className="mt-4 space-y-3 rounded-xl border border-red-200 bg-red-50/60 p-4">
+                <p className="text-sm text-red-800">{t('account.deleteConfirmPrompt', { handle: account.username })}</p>
+                {deleteError && (
+                  <p className="text-sm text-red-700" role="alert">
+                    {deleteError}
+                  </p>
+                )}
+                <input
+                  aria-label={t('account.deleteConfirmLabel')}
+                  value={deleteConfirm}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  placeholder={account.username}
+                  onChange={(e) => setDeleteConfirm(e.target.value)}
+                  className="w-full rounded-lg border border-red-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-400"
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={
+                      del.isPending || deleteConfirm.trim().toLowerCase() !== account.username.toLowerCase()
+                    }
+                    onClick={() => del.mutate()}
+                    className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {del.isPending ? t('account.deleting') : t('account.deleteConfirmButton')}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={del.isPending}
+                    onClick={() => {
+                      setConfirmingDelete(false);
+                      setDeleteConfirm('');
+                      setDeleteError(null);
+                    }}
+                    className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    {t('common.cancel')}
+                  </button>
+                </div>
+              </div>
+            )}
           </section>
         </div>
 
