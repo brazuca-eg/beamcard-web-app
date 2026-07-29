@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Navigate, useParams } from 'react-router-dom';
@@ -6,11 +6,13 @@ import { ApiError } from '../api/client';
 import { useAuthStore } from '../stores/authStore';
 import { problemOf } from '../api/problem';
 import {
+  publicCardUrl,
   publicVcardUrl,
   type Affiliation,
   type AwardResponse,
   type Currency,
   type LinkResponse,
+  type LinkType,
   type PriceItem,
   type ProfileResponse,
 } from '../api/profile';
@@ -219,6 +221,8 @@ function IdentityPanel({
         </a>
       )}
 
+      <ShareButton url={publicCardUrl(profile.username)} name={name} />
+
       {socials.length > 0 && (
         <ul className="mx-auto mt-5 flex max-w-xs flex-wrap justify-center gap-2">
           {socials.map((link) => {
@@ -256,7 +260,116 @@ function IdentityPanel({
           ))}
         </ul>
       )}
+
     </aside>
+  );
+}
+
+/**
+ * One clearly-labeled "Share this card" button (grouped with Save/Call, not a bare icon
+ * row that would mimic the owner's social links). On mobile it opens the OS share sheet
+ * (the user picks who to send to); on desktop it drops a labeled menu with WhatsApp /
+ * Telegram / X / Copy link.
+ */
+function ShareButton({ url, name }: { url: string; name: string }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const text = t('publicCard.shareText', { name });
+  const e = encodeURIComponent;
+
+  const onShare = async () => {
+    // Native share sheet where available (mostly mobile) — clearest "with whom" UX.
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({ title: name, text, url });
+        return;
+      } catch {
+        return; // user dismissed the sheet
+      }
+    }
+    setOpen((v) => !v); // desktop fallback: labeled menu
+  };
+
+  const copy = () => {
+    navigator.clipboard?.writeText(url).then(() => {
+      setCopied(true);
+      setOpen(false);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (ev: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(ev.target as Node)) setOpen(false);
+    };
+    const onKey = (ev: KeyboardEvent) => ev.key === 'Escape' && setOpen(false);
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const items: { type: LinkType; label: string; href: string }[] = [
+    { type: 'WHATSAPP', label: 'WhatsApp', href: `https://wa.me/?text=${e(`${text} ${url}`)}` },
+    { type: 'TELEGRAM', label: 'Telegram', href: `https://t.me/share/url?url=${e(url)}&text=${e(text)}` },
+    { type: 'TWITTER', label: 'X', href: `https://twitter.com/intent/tweet?url=${e(url)}&text=${e(text)}` },
+  ];
+
+  return (
+    <div ref={wrapRef} className="relative mt-3">
+      <button
+        type="button"
+        onClick={onShare}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 active:scale-[.99]"
+      >
+        <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M12 15V3m0 0 4 4m-4-4L8 7" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        {copied ? t('publicCard.linkCopied') : t('publicCard.shareThis')}
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute inset-x-0 z-20 mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+        >
+          {items.map((it) => (
+            <a
+              key={it.type}
+              role="menuitem"
+              href={it.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50"
+            >
+              <SocialGlyph type={it.type} className="h-4 w-4 text-slate-500" />
+              {t('publicCard.shareOn', { app: it.label })}
+            </a>
+          ))}
+          <button
+            type="button"
+            role="menuitem"
+            onClick={copy}
+            className="flex w-full items-center gap-3 border-t border-slate-100 px-4 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M10 13a5 5 0 007.1 0l1.4-1.4a5 5 0 00-7.1-7.1L10 6" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M14 11a5 5 0 00-7.1 0L5.5 12.4a5 5 0 007.1 7.1L14 18" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            {t('publicCard.copyLink')}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -675,13 +788,12 @@ function Page({ children }: { children: React.ReactNode }) {
               ← {t('publicCard.backToProfile')}
             </Link>
           ) : (
-            // Visitors get a signup CTA — every shared card is a funnel.
+            // Visitors get a subtle log-in link; the sign-up pitch lives in the JoinBanner below.
             <Link
-              to="/signup"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm ring-1 ring-inset ring-indigo-500/20 transition hover:bg-indigo-700 hover:shadow"
+              to="/login"
+              className="rounded-full border border-slate-300 px-3.5 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
             >
-              {t('publicCard.createYourCard')}
-              <span aria-hidden="true">→</span>
+              {t('publicCard.logIn')}
             </Link>
           )}
         </div>
@@ -689,26 +801,37 @@ function Page({ children }: { children: React.ReactNode }) {
 
       <main className="flex-1 px-4 py-10">{children}</main>
 
-      {/* Slim conversion CTA — every shared card is a funnel; hidden for the owner's own preview. */}
-      {!token && (
-        <div className="border-t border-slate-200/70 bg-white/60">
-          <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-3 px-4 py-4 text-center sm:flex-row sm:text-left">
-            <p className="text-sm text-slate-600">
-              <span className="font-semibold text-slate-900">{t('publicCard.ctaTitle')}</span> — {t('publicCard.ctaSubtitle')}
-            </p>
-            <Link
-              to="/signup"
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
-            >
-              {t('publicCard.createYourCard')}
-              <span aria-hidden="true">→</span>
-            </Link>
-          </div>
-        </div>
-      )}
-
+      {!token && <JoinBanner />}
       <SiteFooter />
     </div>
+  );
+}
+
+/**
+ * Bottom "join" banner shown to visitors (not the owner previewing). It appears after
+ * they've seen the card — the natural "I want one too" moment — and explains what
+ * Beamcard is and why, so the single sign-up CTA has context instead of being a bare button.
+ */
+function JoinBanner() {
+  const { t } = useTranslation();
+  return (
+    <section className="border-t border-slate-200/70 bg-white/60">
+      <div className="mx-auto max-w-2xl px-4 py-12 text-center">
+        <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-lg font-bold text-white shadow-sm">
+          B
+        </span>
+        <h2 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{t('publicCard.joinTitle')}</h2>
+        <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-600">{t('publicCard.joinBody')}</p>
+        <Link
+          to="/signup"
+          className="mt-6 inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:scale-[.99]"
+        >
+          {t('publicCard.joinCta')}
+          <span aria-hidden="true">→</span>
+        </Link>
+        <p className="mt-3 text-xs text-slate-400">{t('publicCard.joinNote')}</p>
+      </div>
+    </section>
   );
 }
 

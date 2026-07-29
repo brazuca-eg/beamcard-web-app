@@ -10,6 +10,7 @@ import { ApiError } from '../api/client';
 vi.mock('../api/profile', () => ({
   getPublicProfile: vi.fn(),
   publicVcardUrl: (u: string) => `http://localhost:8080/profiles/@${u}/vcard`,
+  publicCardUrl: (u: string) => `http://localhost/@${u}`,
 }));
 
 vi.mock('../features/profile/showcases', () => ({
