@@ -30,7 +30,9 @@ export function Accordion({
         <span className="flex items-center gap-2">
           <span className="font-semibold text-slate-900">{title}</span>
           {count != null && (
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">{count}</span>
+            <span className="rounded-full bg-[var(--accent-soft,#f1f5f9)] px-2 py-0.5 text-xs font-medium text-[var(--accent-strong,#475569)]">
+              {count}
+            </span>
           )}
         </span>
         <svg

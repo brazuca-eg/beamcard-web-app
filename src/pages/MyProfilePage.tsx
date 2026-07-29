@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import PhoneInput, { isValidPhoneNumber, type Country } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
@@ -11,10 +12,13 @@ import {
   AVATAR_MAX_BYTES,
   AWARD_CONTENT_TYPES,
   AWARD_MAX_BYTES,
+  publicCardUrl,
+  type AccentColor,
   type Affiliation,
   type Currency,
   type LinkResponse,
   type LinkType,
+  type OpeningHours,
   type PriceItem,
   type PriceType,
   type ProfileResponse,
@@ -23,7 +27,11 @@ import { useMyProfile, useProfileMutations } from '../features/profile/useMyProf
 import { mapQuery } from '../features/profile/maps';
 import { WorkplaceMap } from '../features/profile/WorkplaceMap';
 import { ShowcasesEditor } from '../features/profile/ShowcasesEditor';
+import { WorkplaceHoursEditor } from '../features/profile/WorkplaceHoursEditor';
 import { ADD_ROW_BTN, EmptyState, SectionHead, TabIcon, UPLOAD_BTN } from '../features/profile/editorUi';
+import { ACCENTS, ACCENT_ORDER } from '../features/profile/accents';
+import { buildQrSvg } from '../features/profile/qr';
+import { useQrStyle } from '../features/profile/qrStyle';
 import { LINK_PREFIX, VALUE_PLACEHOLDER, composeUrl, hasPrefix, toHandle } from '../features/profile/linkComposer';
 import { countryOptions } from '../features/profile/countries';
 import { currencyOptions, isPriceItemValid } from '../features/profile/currencies';
@@ -57,6 +65,7 @@ const EDITOR_TABS = [
   { id: 'services', labelKey: 'editor.tabServices', icon: 'services' },
   { id: 'portfolio', labelKey: 'editor.tabPortfolio', icon: 'portfolio' },
   { id: 'links', labelKey: 'editor.tabLinks', icon: 'link' },
+  { id: 'appearance', labelKey: 'editor.tabAppearance', icon: 'palette' },
 ] as const;
 
 type EditorTabId = (typeof EDITOR_TABS)[number]['id'];
@@ -72,9 +81,10 @@ interface WorkplaceRow {
   organization: string;
   address: string;
   description: string;
+  hours: OpeningHours[];
 }
 
-const EMPTY_ROW: WorkplaceRow = { role: '', organization: '', address: '', description: '' };
+const EMPTY_ROW: WorkplaceRow = { role: '', organization: '', address: '', description: '', hours: [] };
 
 /** API affiliations → editor rows (always at least one row so the form isn't empty). */
 function toRows(affiliations: Affiliation[] | undefined): WorkplaceRow[] {
@@ -84,16 +94,18 @@ function toRows(affiliations: Affiliation[] | undefined): WorkplaceRow[] {
     organization: a.organization ?? '',
     address: a.address ?? '',
     description: a.description ?? '',
+    hours: a.opening_hours ?? [],
   }));
 }
 
-/** Editor rows → API affiliations (the backend drops fully-blank rows). */
+/** Editor rows → API affiliations. Drops incomplete time ranges so auto-save never sends invalid hours. */
 function toAffiliations(rows: WorkplaceRow[]): Affiliation[] {
   return rows.map((r) => ({
     role: r.role,
     organization: r.organization,
     address: r.address,
     description: r.description,
+    opening_hours: r.hours.filter((h) => h.open && h.close && h.close > h.open),
   }));
 }
 
@@ -147,6 +159,40 @@ export function MyProfilePage() {
   }
   // Mount the editor only once loaded, so its state seeds from the profile without an effect.
   return <CardEditor profile={profile} />;
+}
+
+/** Small segmented control (pill group) for the QR style options. */
+function SegGroup<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: { v: T; label: string }[];
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div>
+      <p className="mb-1.5 text-xs font-medium text-slate-500">{label}</p>
+      <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+        {options.map((o) => (
+          <button
+            key={o.v}
+            type="button"
+            aria-pressed={value === o.v}
+            onClick={() => onChange(o.v)}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+              value === o.v ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 /** Best-effort default country for the phone input's dropdown, from the UI language. */
@@ -203,6 +249,19 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
   const currencyList = useMemo(() => currencyOptions(i18n.language), [i18n.language]);
   const [currency, setCurrency] = useState<Currency>(profile.currency ?? 'USD');
   const [priceRows, setPriceRows] = useState<PriceRow[]>(() => toPriceRows(profile.price_items));
+  const [accent, setAccent] = useState<AccentColor>(profile.accent_color ?? 'INDIGO');
+  const [qrStyle, setQrStyle] = useQrStyle();
+  // Live QR preview mirrors the account-page QR: current accent + saved style.
+  const qrPreview = useMemo(
+    () =>
+      buildQrSvg(publicCardUrl(profile.username), {
+        accent,
+        colorMode: qrStyle.colorMode,
+        moduleStyle: qrStyle.moduleStyle,
+        logo: qrStyle.logo,
+      }),
+    [profile.username, accent, qrStyle.colorMode, qrStyle.moduleStyle, qrStyle.logo],
+  );
   const [label, setLabel] = useState('');
   const [url, setUrl] = useState('');
   const [type, setType] = useState<LinkType>('GENERIC');
@@ -214,7 +273,12 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const awardInputRef = useRef<HTMLInputElement>(null);
   const firstRenderRef = useRef(true);
-  const [tab, setTab] = useState<EditorTabId>('profile');
+  // Open a specific tab when arriving via a deep link (e.g. the account checklist's ?tab=portfolio).
+  const [params] = useSearchParams();
+  const requestedTab = params.get('tab');
+  const [tab, setTab] = useState<EditorTabId>(() =>
+    EDITOR_TABS.some((x) => x.id === requestedTab) ? (requestedTab as EditorTabId) : 'profile',
+  );
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   // Select a tab and keep it in view — centers it in the horizontal strip on mobile so the
@@ -314,16 +378,20 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
           activities: activities.map((a) => a.trim()).filter(Boolean),
           currency,
           price_items: priceItems,
+          accent_color: accent,
         },
         { onError: (e) => setError(problemOf(e)?.detail ?? t('editor.saveError')) },
       );
     }, AUTOSAVE_MS);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayName, bio, phone, country, city, workplaces, activities, currency, priceRows]);
+  }, [displayName, bio, phone, country, city, workplaces, activities, currency, priceRows, accent]);
 
-  const updateWorkplace = (index: number, field: keyof WorkplaceRow, value: string) =>
+  const updateWorkplace = (index: number, field: 'role' | 'organization' | 'address' | 'description', value: string) =>
     setWorkplaces((rows) => rows.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
+
+  const setWorkplaceHours = (index: number, hours: OpeningHours[]) =>
+    setWorkplaces((rows) => rows.map((r, i) => (i === index ? { ...r, hours } : r)));
 
   const addWorkplace = () => setWorkplaces((rows) => [...rows, { ...EMPTY_ROW }]);
 
@@ -653,6 +721,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
                 {w.address.trim() && (
                   <WorkplaceMap query={mapQuery({ address: w.address, city, country })} debounceMs={600} />
                 )}
+                <WorkplaceHoursEditor hours={w.hours} onChange={(h) => setWorkplaceHours(i, h)} />
               </div>
             ))}
             <button type="button" onClick={addWorkplace} className={ADD_ROW_BTN}>
@@ -1075,6 +1144,109 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
             >
               {createLink.isPending ? t('editor.addingLink') : t('editor.addLinkButton')}
             </button>
+          </div>
+        </section>
+          </div>
+
+          <div
+            role="tabpanel"
+            id="panel-appearance"
+            aria-labelledby="tab-appearance"
+            hidden={tab !== 'appearance'}
+            className="space-y-5"
+          >
+        {/* Appearance */}
+        <section className={PANEL}>
+          <SectionHead
+            icon="palette"
+            title={t('editor.appearance')}
+            hint={t('editor.appearanceHint')}
+            aside={<AutoSavedBadge />}
+          />
+          <div className="flex flex-wrap gap-3">
+            {ACCENT_ORDER.map((a) => {
+              const selected = accent === a;
+              return (
+                <button
+                  key={a}
+                  type="button"
+                  aria-label={t(`accents.${a}`)}
+                  aria-pressed={selected}
+                  onClick={() => setAccent(a)}
+                  style={{ backgroundColor: ACCENTS[a].base }}
+                  className={`flex h-10 w-10 items-center justify-center rounded-full ring-offset-2 transition hover:scale-110 ${
+                    selected ? 'ring-2 ring-slate-900' : 'ring-1 ring-slate-200'
+                  }`}
+                >
+                  {selected && (
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-5 w-5 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      aria-hidden="true"
+                    >
+                      <path d="m5 13 4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-5 rounded-xl border border-slate-200 p-4">
+            <p className="mb-2 text-xs font-medium text-slate-500">{t('editor.appearancePreview')}</p>
+            <span
+              className="inline-flex items-center rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm"
+              style={{ backgroundColor: ACCENTS[accent].base }}
+            >
+              {t('accents.' + accent)}
+            </span>
+          </div>
+
+          {/* QR code styling — a private tool shown on the Account share panel + downloads. */}
+          <div className="mt-6 border-t border-slate-100 pt-5">
+            <h3 className="text-sm font-semibold text-slate-900">{t('editor.qrTitle')}</h3>
+            <p className="mt-0.5 text-xs text-slate-500">{t('editor.qrHint')}</p>
+
+            <div className="mt-4 flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex flex-col gap-4">
+                <SegGroup
+                  label={t('editor.qrColor')}
+                  value={qrStyle.colorMode}
+                  onChange={(v) => setQrStyle({ colorMode: v })}
+                  options={[
+                    { v: 'accent', label: t('editor.qrColorAccent') },
+                    { v: 'black', label: t('editor.qrColorBlack') },
+                  ]}
+                />
+                <SegGroup
+                  label={t('editor.qrShape')}
+                  value={qrStyle.moduleStyle}
+                  onChange={(v) => setQrStyle({ moduleStyle: v })}
+                  options={[
+                    { v: 'rounded', label: t('editor.qrShapeRounded') },
+                    { v: 'square', label: t('editor.qrShapeSquare') },
+                    { v: 'dots', label: t('editor.qrShapeDots') },
+                  ]}
+                />
+                <SegGroup
+                  label={t('editor.qrLogo')}
+                  value={qrStyle.logo ? 'on' : 'off'}
+                  onChange={(v) => setQrStyle({ logo: v === 'on' })}
+                  options={[
+                    { v: 'on', label: t('editor.qrLogoShow') },
+                    { v: 'off', label: t('editor.qrLogoHide') },
+                  ]}
+                />
+              </div>
+              <div
+                aria-label={t('editor.qrTitle')}
+                className="mx-auto h-40 w-40 shrink-0 rounded-xl border border-slate-200 bg-white p-2 [&>svg]:h-full [&>svg]:w-full sm:mx-0"
+                dangerouslySetInnerHTML={{ __html: qrPreview }}
+              />
+            </div>
           </div>
         </section>
           </div>

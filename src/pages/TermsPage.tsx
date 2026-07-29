@@ -67,6 +67,13 @@ export function TermsPage() {
       <h2>Changes</h2>
       <p>We may update these Terms; continued use after changes means you accept the updated Terms.</p>
 
+      <h2>Trademarks and third-party brands</h2>
+      <p>
+        Brand names and logos that may appear on a card — for example social-network icons or an employer's name — are
+        the trademarks of their respective owners. Their presence does not imply any affiliation with, or endorsement,
+        sponsorship, or partnership by, those owners, and Beamcard is not affiliated with or endorsed by them.
+      </p>
+
       <h2>Governing law</h2>
       <p>These Terms are governed by the laws of <strong>[Country/State]</strong>, without regard to conflict-of-laws rules.</p>
 

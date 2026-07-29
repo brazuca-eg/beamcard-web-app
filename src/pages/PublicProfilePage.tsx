@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Navigate, useParams } from 'react-router-dom';
@@ -6,15 +6,21 @@ import { ApiError } from '../api/client';
 import { useAuthStore } from '../stores/authStore';
 import { problemOf } from '../api/problem';
 import {
+  publicCardUrl,
   publicVcardUrl,
   type Affiliation,
   type AwardResponse,
   type Currency,
   type LinkResponse,
+  type LinkType,
+  type OpeningHours,
   type PriceItem,
   type ProfileResponse,
 } from '../api/profile';
 import { usePublicProfile } from '../features/profile/usePublicProfile';
+import { accentVars } from '../features/profile/accents';
+import { DAY_ORDER, groupByDay, todayKey } from '../features/profile/hours';
+import { SiteFooter } from '../components/SiteFooter';
 import { mapQuery } from '../features/profile/maps';
 import { WorkplaceMap } from '../features/profile/WorkplaceMap';
 import { getPublicShowcases, type Showcase } from '../features/profile/showcases';
@@ -106,6 +112,7 @@ function Card({ profile }: { profile: ProfileResponse }) {
   return (
     <Page>
       <div
+        style={accentVars(profile.accent_color)}
         className={
           hasContent
             ? 'mx-auto grid w-full max-w-5xl gap-6 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:items-start lg:gap-8'
@@ -202,7 +209,7 @@ function IdentityPanel({
 
       <a
         href={publicVcardUrl(profile.username)}
-        className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:scale-[.99]"
+        className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-3 font-semibold text-white shadow-sm transition hover:bg-[var(--accent-strong)] active:scale-[.99]"
       >
         <span aria-hidden="true">＋</span> {t('publicCard.saveContact')}
       </a>
@@ -216,6 +223,8 @@ function IdentityPanel({
         </a>
       )}
 
+      <ShareButton url={publicCardUrl(profile.username)} name={name} />
+
       {socials.length > 0 && (
         <ul className="mx-auto mt-5 flex max-w-xs flex-wrap justify-center gap-2">
           {socials.map((link) => {
@@ -227,7 +236,7 @@ function IdentityPanel({
                 {...(isEmail ? {} : { target: '_blank', rel: 'noopener noreferrer' })}
                 aria-label={link.label}
                 title={link.label}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:text-indigo-600 hover:shadow-md active:scale-90"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:text-[var(--accent)] hover:shadow-md active:scale-90"
               >
                 <SocialGlyph type={link.type} className="h-[18px] w-[18px]" />
               </a>
@@ -253,7 +262,116 @@ function IdentityPanel({
           ))}
         </ul>
       )}
+
     </aside>
+  );
+}
+
+/**
+ * One clearly-labeled "Share this card" button (grouped with Save/Call, not a bare icon
+ * row that would mimic the owner's social links). On mobile it opens the OS share sheet
+ * (the user picks who to send to); on desktop it drops a labeled menu with WhatsApp /
+ * Telegram / X / Copy link.
+ */
+function ShareButton({ url, name }: { url: string; name: string }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const text = t('publicCard.shareText', { name });
+  const e = encodeURIComponent;
+
+  const onShare = async () => {
+    // Native share sheet where available (mostly mobile) — clearest "with whom" UX.
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({ title: name, text, url });
+        return;
+      } catch {
+        return; // user dismissed the sheet
+      }
+    }
+    setOpen((v) => !v); // desktop fallback: labeled menu
+  };
+
+  const copy = () => {
+    navigator.clipboard?.writeText(url).then(() => {
+      setCopied(true);
+      setOpen(false);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (ev: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(ev.target as Node)) setOpen(false);
+    };
+    const onKey = (ev: KeyboardEvent) => ev.key === 'Escape' && setOpen(false);
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const items: { type: LinkType; label: string; href: string }[] = [
+    { type: 'WHATSAPP', label: 'WhatsApp', href: `https://wa.me/?text=${e(`${text} ${url}`)}` },
+    { type: 'TELEGRAM', label: 'Telegram', href: `https://t.me/share/url?url=${e(url)}&text=${e(text)}` },
+    { type: 'TWITTER', label: 'X', href: `https://twitter.com/intent/tweet?url=${e(url)}&text=${e(text)}` },
+  ];
+
+  return (
+    <div ref={wrapRef} className="relative mt-3">
+      <button
+        type="button"
+        onClick={onShare}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 active:scale-[.99]"
+      >
+        <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M12 15V3m0 0 4 4m-4-4L8 7" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        {copied ? t('publicCard.linkCopied') : t('publicCard.shareThis')}
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute inset-x-0 z-20 mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+        >
+          {items.map((it) => (
+            <a
+              key={it.type}
+              role="menuitem"
+              href={it.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50"
+            >
+              <SocialGlyph type={it.type} className="h-4 w-4 text-slate-500" />
+              {t('publicCard.shareOn', { app: it.label })}
+            </a>
+          ))}
+          <button
+            type="button"
+            role="menuitem"
+            onClick={copy}
+            className="flex w-full items-center gap-3 border-t border-slate-100 px-4 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M10 13a5 5 0 007.1 0l1.4-1.4a5 5 0 00-7.1-7.1L10 6" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M14 11a5 5 0 00-7.1 0L5.5 12.4a5 5 0 007.1 7.1L14 18" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            {t('publicCard.copyLink')}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -261,12 +379,12 @@ function ActivitiesCard({ activities }: { activities: string[] }) {
   const { t } = useTranslation();
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t('publicCard.activities')}</h2>
+      <h2 className="text-base font-semibold text-slate-900">{t('publicCard.activities')}</h2>
       <ul className="mt-3 flex flex-wrap gap-2">
         {activities.map((a, i) => (
           <li
             key={i}
-            className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm font-medium text-slate-700"
+            className="rounded-full bg-[var(--accent-soft,#eef2ff)] px-3 py-1 text-sm font-medium text-[var(--accent-strong,#4338ca)]"
           >
             {a}
           </li>
@@ -315,9 +433,36 @@ function WorkplacesList({ profile, workplaces }: { profile: ProfileResponse; wor
               query={mapQuery({ address: a.address, city: profile.location?.city, country: profile.location?.country })}
             />
           )}
+          <WorkplaceHours hours={a.opening_hours} />
         </li>
       ))}
     </ul>
+  );
+}
+
+/** Read-only weekly hours for one workplace — Monday-first, today highlighted, closed days muted. */
+function WorkplaceHours({ hours }: { hours?: OpeningHours[] }) {
+  const { t } = useTranslation();
+  if (!hours || hours.length === 0) return null;
+  const byDay = groupByDay(hours);
+  const today = todayKey();
+  return (
+    <dl className="mt-3 border-t border-slate-100 pt-3 text-sm">
+      {DAY_ORDER.map((day) => {
+        const ranges = byDay[day];
+        const isToday = day === today;
+        return (
+          <div key={day} className={`flex justify-between gap-4 py-0.5 ${isToday ? 'font-semibold text-slate-900' : ''}`}>
+            <dt className={isToday ? '' : 'text-slate-500'}>{t(`days.${day}`)}</dt>
+            <dd className={ranges.length === 0 ? 'text-slate-400' : 'text-slate-700'}>
+              {ranges.length === 0
+                ? t('publicCard.closed')
+                : ranges.map((r) => `${r.open}–${r.close}`).join(', ')}
+            </dd>
+          </div>
+        );
+      })}
+    </dl>
   );
 }
 
@@ -626,7 +771,7 @@ function Avatar({ url, name }: { url?: string; name: string }) {
     return <img src={url} alt={name} className="mx-auto h-24 w-24 rounded-full object-cover shadow-md ring-4 ring-white" />;
   }
   return (
-    <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-indigo-100 text-3xl font-semibold text-indigo-600 shadow-md ring-4 ring-white">
+    <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-[var(--accent-soft)] text-3xl font-semibold text-[var(--accent)] shadow-md ring-4 ring-white">
       {name.replace(/^@/, '').charAt(0).toUpperCase()}
     </div>
   );
@@ -655,29 +800,29 @@ function Page({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-slate-50 to-slate-100">
-      <header className="border-b border-slate-200/70 bg-white/70 backdrop-blur">
+      <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
-          <Link to="/" className="flex items-center gap-2 font-bold tracking-tight text-slate-900">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 text-sm text-white">
+          <Link to="/" className="group flex items-center gap-2.5" aria-label="Beamcard">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-base font-bold text-white shadow-sm transition group-hover:bg-indigo-700">
               B
             </span>
-            <span>Beamcard</span>
+            <span className="text-[17px] font-bold tracking-tight text-slate-900">Beamcard</span>
           </Link>
           {token ? (
             // Logged-in owner previewing their own card gets a way back.
             <Link
               to="/app/profile"
-              className="rounded-full border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              className="rounded-full border border-slate-300 px-3.5 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
             >
               ← {t('publicCard.backToProfile')}
             </Link>
           ) : (
-            // Visitors get a signup CTA — every shared card is a funnel.
+            // Visitors get a subtle log-in link; the sign-up pitch lives in the JoinBanner below.
             <Link
-              to="/signup"
-              className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700"
+              to="/login"
+              className="rounded-full border border-slate-300 px-3.5 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
             >
-              {t('publicCard.createYourCard')}
+              {t('publicCard.logIn')}
             </Link>
           )}
         </div>
@@ -685,29 +830,37 @@ function Page({ children }: { children: React.ReactNode }) {
 
       <main className="flex-1 px-4 py-10">{children}</main>
 
-      <footer className="border-t border-slate-200/70 px-4 py-6 text-center text-xs text-slate-400">
-        <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
-          <Link to="/privacy" className="text-slate-500 hover:text-slate-900 hover:underline">
-            {t('nav.privacy')}
-          </Link>
-          <span>·</span>
-          <Link to="/terms" className="text-slate-500 hover:text-slate-900 hover:underline">
-            {t('nav.terms')}
-          </Link>
-          <span>·</span>
-          <Link to="/cookies" className="text-slate-500 hover:text-slate-900 hover:underline">
-            {t('nav.cookies')}
-          </Link>
-          <span>·</span>
-          <Link to="/accessibility" className="text-slate-500 hover:text-slate-900 hover:underline">
-            {t('nav.accessibility')}
-          </Link>
-        </div>
-        <p className="mx-auto mt-2 max-w-md text-[11px] leading-relaxed text-slate-300">
-          {t('publicCard.notAffiliated')}
-        </p>
-      </footer>
+      {!token && <JoinBanner />}
+      <SiteFooter />
     </div>
+  );
+}
+
+/**
+ * Bottom "join" banner shown to visitors (not the owner previewing). It appears after
+ * they've seen the card — the natural "I want one too" moment — and explains what
+ * Beamcard is and why, so the single sign-up CTA has context instead of being a bare button.
+ */
+function JoinBanner() {
+  const { t } = useTranslation();
+  return (
+    <section className="border-t border-slate-200/70 bg-white/60">
+      <div className="mx-auto max-w-2xl px-4 py-12 text-center">
+        <span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-lg font-bold text-white shadow-sm">
+          B
+        </span>
+        <h2 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{t('publicCard.joinTitle')}</h2>
+        <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-600">{t('publicCard.joinBody')}</p>
+        <Link
+          to="/signup"
+          className="mt-6 inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:scale-[.99]"
+        >
+          {t('publicCard.joinCta')}
+          <span aria-hidden="true">→</span>
+        </Link>
+        <p className="mt-3 text-xs text-slate-400">{t('publicCard.joinNote')}</p>
+      </div>
+    </section>
   );
 }
 

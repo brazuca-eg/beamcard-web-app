@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
@@ -9,6 +9,7 @@ import { resendVerificationEmail, signup, type AuthResponse } from '../../api/au
 import { applyFieldErrors, problemOf } from '../../api/problem';
 import { LANG_FLAGS, SUPPORTED_LANGS, type Lang } from '../../i18n';
 import { signupSchema, type SignupFormValues } from './schema';
+import { sanitizeHandle } from './handle';
 
 interface Props {
   /** Called only when signup returns a session (email verification disabled). */
@@ -34,6 +35,10 @@ export function SignupForm({ onAuthenticated }: Props) {
     ? (i18n.language as Lang)
     : 'en';
 
+  // Pre-fill the handle from the landing "claim your @username" hero (?u=...).
+  const [params] = useSearchParams();
+  const prefillHandle = sanitizeHandle(params.get('u') ?? '');
+
   const {
     register,
     handleSubmit,
@@ -42,7 +47,7 @@ export function SignupForm({ onAuthenticated }: Props) {
   } = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
     mode: 'onBlur',
-    defaultValues: { locale: detected },
+    defaultValues: { locale: detected, username: prefillHandle || undefined },
   });
 
   const localeField = register('locale');

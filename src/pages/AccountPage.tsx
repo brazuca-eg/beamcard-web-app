@@ -1,17 +1,134 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../stores/authStore';
 import { changePassword, deleteAccount, updateAccount, type AccountResponse } from '../api/auth';
-import { deleteMyProfile, getMyProfile, getMyProfileQr, publicCardUrl } from '../api/profile';
+import { deleteMyProfile, getMyProfile, publicCardUrl, type ProfileResponse } from '../api/profile';
 import { problemOf } from '../api/problem';
 import { useCurrentAccount } from '../features/auth/useCurrentAccount';
 import { useMyProfile } from '../features/profile/useMyProfile';
 import { ShareDialog } from '../features/profile/ShareDialog';
+import { buildQrSvg } from '../features/profile/qr';
+import { getMyShowcases } from '../features/profile/showcases';
+import { buildSignatureHtml, buildSignatureText, copySignature } from '../features/profile/emailSignature';
+import { loadQrStyle } from '../features/profile/qrStyle';
+import { ACCENTS, DEFAULT_ACCENT } from '../features/profile/accents';
 import { LANG_FLAGS, SUPPORTED_LANGS, type Lang } from '../i18n';
 
 const PANEL = 'rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70 sm:p-6';
+
+/**
+ * Email-signature generator: a live preview + one-click copy that writes rich HTML to the
+ * clipboard, so the card link pastes formatted into Gmail/Outlook signature settings.
+ */
+function EmailSignature({ profile, url }: { profile: ProfileResponse; url: string }) {
+  const { t } = useTranslation();
+  const accent = ACCENTS[profile.accent_color ?? DEFAULT_ACCENT] ?? ACCENTS[DEFAULT_ACCENT];
+  const [copied, setCopied] = useState(false);
+  const html = useMemo(() => buildSignatureHtml(profile, url, accent.base), [profile, url, accent.base]);
+  const text = useMemo(() => buildSignatureText(profile, url), [profile, url]);
+
+  const onCopy = async () => {
+    if (await copySignature(html, text)) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    }
+  };
+
+  return (
+    <section className={PANEL}>
+      <h2 className="text-base font-semibold text-slate-900">{t('signature.title')}</h2>
+      <p className="mt-0.5 text-xs text-slate-400">{t('signature.hint')}</p>
+      <div
+        className="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-4"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+      <button
+        type="button"
+        onClick={onCopy}
+        className="mt-3 w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+      >
+        {copied ? t('signature.copied') : t('signature.copy')}
+      </button>
+      <p className="mt-2 text-xs text-slate-400">{t('signature.paste')}</p>
+    </section>
+  );
+}
+
+/**
+ * Activation nudge: a completion score + checklist derived from the profile so new
+ * users finish a card worth sharing. Each step deep-links to its editor tab; the card
+ * disappears once everything is done (nothing left to nudge).
+ */
+function OnboardingChecklist({ profile }: { profile: ProfileResponse }) {
+  const { t } = useTranslation();
+  const { data: showcases } = useQuery({ queryKey: ['showcases', 'me'], queryFn: getMyShowcases });
+
+  const steps = [
+    { key: 'photo', tab: 'profile', done: Boolean(profile.avatar_url) },
+    { key: 'name', tab: 'profile', done: Boolean(profile.display_name?.trim()) },
+    { key: 'activities', tab: 'services', important: true, done: (profile.activities?.length ?? 0) > 0 },
+    { key: 'pricelist', tab: 'services', done: (profile.price_items?.length ?? 0) > 0 },
+    { key: 'link', tab: 'links', done: (profile.links?.length ?? 0) > 0 },
+    { key: 'certificates', tab: 'portfolio', done: (profile.awards?.length ?? 0) > 0 },
+    { key: 'showcases', tab: 'portfolio', done: (showcases?.length ?? 0) > 0 },
+  ];
+  const done = steps.filter((s) => s.done).length;
+  if (done === steps.length) return null; // card complete — nothing to nudge
+  const pct = Math.round((done / steps.length) * 100);
+
+  return (
+    <section className={PANEL}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-slate-900">{t('onboarding.title')}</h2>
+          <p className="mt-0.5 text-xs text-slate-500">{t('onboarding.hint')}</p>
+        </div>
+        <span className="shrink-0 text-2xl font-bold text-indigo-600">{pct}%</span>
+      </div>
+      <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+        <div className="h-full rounded-full bg-indigo-600 transition-all duration-500" style={{ width: `${pct}%` }} />
+      </div>
+      <ul className="mt-4 space-y-1">
+        {steps.map((s) => (
+          <li key={s.key}>
+            <RouterLink
+              to={`/app/profile?tab=${s.tab}`}
+              className="group flex items-center gap-3 rounded-lg px-2 py-1.5 transition hover:bg-slate-50"
+            >
+              {s.done ? (
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white">
+                  <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden="true">
+                    <path d="m5 13 4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+              ) : (
+                <span className="h-5 w-5 shrink-0 rounded-full border-2 border-slate-300 transition group-hover:border-indigo-400" />
+              )}
+              <span className={s.done ? 'text-sm text-slate-400 line-through' : 'text-sm font-medium text-slate-700'}>
+                {t(`onboarding.${s.key}`)}
+              </span>
+              {s.important && !s.done && (
+                <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-600">
+                  {t('onboarding.important')}
+                </span>
+              )}
+              {!s.done && (
+                <span
+                  className="ml-auto text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-indigo-400"
+                  aria-hidden="true"
+                >
+                  →
+                </span>
+              )}
+            </RouterLink>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
 export function AccountPage() {
   const { t } = useTranslation();
@@ -66,7 +183,22 @@ function AccountDetails({ account }: { account: AccountResponse }) {
   const cardUrl = publicCardUrl(account.username);
   const displayName = profile?.display_name?.trim() || `@${account.username}`;
 
-  const qr = useQuery({ queryKey: ['profile', 'qr'], queryFn: getMyProfileQr });
+  // QR is generated client-side from the card URL + accent + the owner's saved QR style
+  // (localStorage) — no backend round-trip, and it stays in sync with the chosen theme.
+  const qrStyle = loadQrStyle();
+  const qrSvg = useMemo(
+    () =>
+      buildQrSvg(cardUrl, {
+        accent: profile?.accent_color,
+        colorMode: qrStyle.colorMode,
+        moduleStyle: qrStyle.moduleStyle,
+        logo: qrStyle.logo,
+      }),
+    [cardUrl, profile?.accent_color, qrStyle.colorMode, qrStyle.moduleStyle, qrStyle.logo],
+  );
+  // The avatar represents the user's card, so it takes the accent (matching the public
+  // card + QR). App controls stay Beamcard indigo — accent = your card, indigo = the app.
+  const accent = ACCENTS[profile?.accent_color ?? DEFAULT_ACCENT] ?? ACCENTS[DEFAULT_ACCENT];
 
   const memberSince = new Date(account.created_at).toLocaleDateString(i18n.language, {
     year: 'numeric',
@@ -168,6 +300,8 @@ function AccountDetails({ account }: { account: AccountResponse }) {
     <>
       <div className="mx-auto grid max-w-4xl gap-5 px-4 py-6 lg:grid-cols-[1fr_minmax(0,340px)] lg:items-start">
         <div className="space-y-5">
+          {profile && <OnboardingChecklist profile={profile} />}
+
           {/* Identity + primary actions */}
           <section className={PANEL}>
             <div className="flex items-center gap-4">
@@ -178,7 +312,10 @@ function AccountDetails({ account }: { account: AccountResponse }) {
                   className="h-20 w-20 rounded-full border border-slate-200 object-cover"
                 />
               ) : (
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-indigo-100 text-2xl font-semibold text-indigo-600">
+                <div
+                  className="flex h-20 w-20 items-center justify-center rounded-full text-2xl font-semibold"
+                  style={{ backgroundColor: accent.soft, color: accent.base }}
+                >
                   {displayName.replace(/^@/, '').charAt(0).toUpperCase()}
                 </div>
               )}
@@ -435,21 +572,20 @@ function AccountDetails({ account }: { account: AccountResponse }) {
           </section>
         </div>
 
-        {/* Share / QR — the home for sharing the public card */}
-        <section className={`${PANEL} lg:sticky lg:top-20`}>
+        {/* Share / QR + email signature — the "get your card out there" column */}
+        <div className="space-y-5">
+        <section className={PANEL}>
           <h2 className="text-base font-semibold text-slate-900">{t('editor.shareTitle')}</h2>
           <p className="mt-0.5 text-xs text-slate-400">{t('share.subtitle')}</p>
 
           <div className="mx-auto mt-4 flex aspect-square w-full max-w-[220px] items-center justify-center rounded-xl border border-slate-200 bg-white p-3">
-            {qr.data ? (
+            {qrSvg ? (
               <div
                 className="h-full w-full [&>svg]:h-full [&>svg]:w-full"
-                dangerouslySetInnerHTML={{ __html: qr.data }}
+                dangerouslySetInnerHTML={{ __html: qrSvg }}
               />
             ) : (
-              <span className="text-sm text-slate-400">
-                {qr.isLoading ? t('share.generating') : t('share.unavailable')}
-              </span>
+              <span className="text-sm text-slate-400">{t('share.unavailable')}</span>
             )}
           </div>
 
@@ -470,14 +606,16 @@ function AccountDetails({ account }: { account: AccountResponse }) {
             </button>
           </div>
         </section>
+          {profile && <EmailSignature profile={profile} url={cardUrl} />}
+        </div>
       </div>
 
       {shareOpen && (
         <ShareDialog
           username={account.username}
           url={cardUrl}
-          qrSvg={qr.data}
-          isLoading={qr.isLoading}
+          qrSvg={qrSvg}
+          isLoading={false}
           onClose={() => setShareOpen(false)}
         />
       )}
