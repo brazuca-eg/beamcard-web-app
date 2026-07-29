@@ -273,6 +273,18 @@ export const de: Resources = {
     addPriceItem: '+ Leistung hinzufügen',
     priceInvalid: 'Prüfe die Preise — jede Leistung braucht einen gültigen Betrag für ihren Preistyp.',
   },
+  onboarding: {
+    title: 'Vervollständige deine Karte',
+    hint: 'Je vollständiger deine Karte, desto stärker der Eindruck bei allen, die sie sehen.',
+    important: 'Wichtig',
+    photo: 'Foto hinzufügen',
+    name: 'Namen hinzufügen',
+    activities: 'Haupttätigkeiten hinzufügen',
+    pricelist: 'Preisliste hinzufügen',
+    link: 'Link hinzufügen',
+    certificates: 'Zertifikate hinzufügen',
+    showcases: 'Vorher → Nachher-Fälle hinzufügen',
+  },
   priceTypes: {
     EXACT: 'Genau',
     FROM: 'Ab',

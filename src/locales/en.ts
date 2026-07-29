@@ -272,6 +272,18 @@ export const en = {
     addPriceItem: '+ Add service',
     priceInvalid: 'Check the prices — each service needs a valid amount for its price type.',
   },
+  onboarding: {
+    title: 'Complete your card',
+    hint: 'The more complete your card, the stronger the impression on everyone who views it.',
+    important: 'Important',
+    photo: 'Add a photo',
+    name: 'Add your name',
+    activities: 'Add your main directions',
+    pricelist: 'Add your price list',
+    link: 'Add a link',
+    certificates: 'Add certificates',
+    showcases: 'Add before → after cases',
+  },
   priceTypes: {
     EXACT: 'Exact',
     FROM: 'From',

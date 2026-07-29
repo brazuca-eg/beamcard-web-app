@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import PhoneInput, { isValidPhoneNumber, type Country } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
@@ -267,7 +268,12 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const awardInputRef = useRef<HTMLInputElement>(null);
   const firstRenderRef = useRef(true);
-  const [tab, setTab] = useState<EditorTabId>('profile');
+  // Open a specific tab when arriving via a deep link (e.g. the account checklist's ?tab=portfolio).
+  const [params] = useSearchParams();
+  const requestedTab = params.get('tab');
+  const [tab, setTab] = useState<EditorTabId>(() =>
+    EDITOR_TABS.some((x) => x.id === requestedTab) ? (requestedTab as EditorTabId) : 'profile',
+  );
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   // Select a tab and keep it in view — centers it in the horizontal strip on mobile so the
