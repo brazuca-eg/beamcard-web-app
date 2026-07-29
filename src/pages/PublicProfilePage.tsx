@@ -156,15 +156,6 @@ function Card({ profile }: { profile: ProfileResponse }) {
           </div>
         )}
       </div>
-
-      <footer className="mt-8 text-center text-xs text-slate-400">
-        <p>{t('publicCard.madeWith')}</p>
-        {socials.length > 0 && (
-          <p className="mx-auto mt-1 max-w-md text-[11px] leading-relaxed text-slate-300">
-            {t('publicCard.notAffiliated')}
-          </p>
-        )}
-      </footer>
     </Page>
   );
 }
@@ -658,22 +649,64 @@ function primaryLocation(profile: ProfileResponse): string {
   return [loc.city, localizeCountry(loc.country, profile.locale)].filter(Boolean).join(', ');
 }
 
-/** Soft full-height backdrop for the card (mobile-first). */
+/** Public page chrome: a slim brand header (+ CTA / back), the card, and a legal footer. */
 function Page({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
   const token = useAuthStore((s) => s.token);
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-4 py-10">
-      {/* Logged-in viewers (e.g. previewing their own card) get a way back; visitors don't. */}
-      {token && (
-        <Link
-          to="/app/profile"
-          className="fixed left-4 top-4 z-40 inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white/90 px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm backdrop-blur transition hover:bg-white"
-        >
-          ← {t('publicCard.backToProfile')}
-        </Link>
-      )}
-      {children}
+    <div className="flex min-h-screen flex-col bg-gradient-to-b from-slate-50 to-slate-100">
+      <header className="border-b border-slate-200/70 bg-white/70 backdrop-blur">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
+          <Link to="/" className="flex items-center gap-2 font-bold tracking-tight text-slate-900">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 text-sm text-white">
+              B
+            </span>
+            <span>Beamcard</span>
+          </Link>
+          {token ? (
+            // Logged-in owner previewing their own card gets a way back.
+            <Link
+              to="/app/profile"
+              className="rounded-full border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            >
+              ← {t('publicCard.backToProfile')}
+            </Link>
+          ) : (
+            // Visitors get a signup CTA — every shared card is a funnel.
+            <Link
+              to="/signup"
+              className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700"
+            >
+              {t('publicCard.createYourCard')}
+            </Link>
+          )}
+        </div>
+      </header>
+
+      <main className="flex-1 px-4 py-10">{children}</main>
+
+      <footer className="border-t border-slate-200/70 px-4 py-6 text-center text-xs text-slate-400">
+        <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+          <Link to="/privacy" className="text-slate-500 hover:text-slate-900 hover:underline">
+            {t('nav.privacy')}
+          </Link>
+          <span>·</span>
+          <Link to="/terms" className="text-slate-500 hover:text-slate-900 hover:underline">
+            {t('nav.terms')}
+          </Link>
+          <span>·</span>
+          <Link to="/cookies" className="text-slate-500 hover:text-slate-900 hover:underline">
+            {t('nav.cookies')}
+          </Link>
+          <span>·</span>
+          <Link to="/accessibility" className="text-slate-500 hover:text-slate-900 hover:underline">
+            {t('nav.accessibility')}
+          </Link>
+        </div>
+        <p className="mx-auto mt-2 max-w-md text-[11px] leading-relaxed text-slate-300">
+          {t('publicCard.notAffiliated')}
+        </p>
+      </footer>
     </div>
   );
 }

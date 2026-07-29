@@ -107,8 +107,6 @@ export function AppLayout() {
         <Link to="/accessibility" className="text-slate-500 hover:text-slate-900 hover:underline">
           {t('nav.accessibility')}
         </Link>
-        <span>·</span>
-        <span>{t('publicCard.madeWith')}</span>
       </footer>
     </div>
   );

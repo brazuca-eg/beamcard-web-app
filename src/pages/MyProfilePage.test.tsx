@@ -125,6 +125,7 @@ describe('MyProfilePage', () => {
     await screen.findByDisplayValue('Alice');
 
     // Typed link: pick the platform, no separate label — it's derived.
+    await userEvent.click(screen.getByRole('tab', { name: /links/i }));
     await userEvent.selectOptions(screen.getByLabelText('Link type'), 'INSTAGRAM');
     expect(screen.queryByLabelText('Label')).not.toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Instagram link'), 'https://instagram.com/alice');
@@ -147,22 +148,25 @@ describe('MyProfilePage', () => {
 
     await userEvent.selectOptions(screen.getByLabelText('Country'), 'Austria');
     await userEvent.type(screen.getByLabelText('City'), 'Vienna');
+    await userEvent.click(screen.getByRole('tab', { name: /workplaces/i }));
     await userEvent.type(screen.getByLabelText('Role 1'), 'Trainer');
     await userEvent.type(screen.getByLabelText('Organization 1'), 'FitGym');
     await userEvent.type(screen.getByLabelText('Address 1'), 'Stephansplatz 1');
     await userEvent.type(screen.getByLabelText('Description 1'), 'Entrance B');
-    await userEvent.click(screen.getByRole('button', { name: /save profile/i }));
 
-    await waitFor(() =>
-      expect(vi.mocked(updateMyProfile)).toHaveBeenCalledWith(
-        expect.objectContaining({
-          location: { country: 'Austria', city: 'Vienna' },
-          affiliations: [
-            { role: 'Trainer', organization: 'FitGym', address: 'Stephansplatz 1', description: 'Entrance B' },
-          ],
-        }),
-        expect.anything(),
-      ),
+    // Auto-save: no button — the debounced write fires after edits settle.
+    await waitFor(
+      () =>
+        expect(vi.mocked(updateMyProfile)).toHaveBeenCalledWith(
+          expect.objectContaining({
+            location: { country: 'Austria', city: 'Vienna' },
+            affiliations: [
+              { role: 'Trainer', organization: 'FitGym', address: 'Stephansplatz 1', description: 'Entrance B' },
+            ],
+          }),
+          expect.anything(),
+        ),
+      { timeout: 2000 },
     );
   });
 
@@ -171,6 +175,7 @@ describe('MyProfilePage', () => {
     renderPage();
     await screen.findByDisplayValue('Alice');
 
+    await userEvent.click(screen.getByRole('tab', { name: /workplaces/i }));
     expect(screen.getByLabelText('Role 1')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /add workplace/i }));
     expect(screen.getByLabelText('Role 2')).toBeInTheDocument();
@@ -201,6 +206,7 @@ describe('MyProfilePage', () => {
     renderPage();
     await screen.findByDisplayValue('Alice');
 
+    await userEvent.click(screen.getByRole('tab', { name: /links/i }));
     await userEvent.selectOptions(screen.getByLabelText('Link type'), 'TELEGRAM');
     // The field is just the handle — the https://t.me/ prefix is shown as an adornment.
     await userEvent.type(screen.getByLabelText('Telegram link'), 'yehor_br');
@@ -220,20 +226,22 @@ describe('MyProfilePage', () => {
     renderPage();
     await screen.findByDisplayValue('Alice');
 
+    await userEvent.click(screen.getByRole('tab', { name: /services/i }));
     await userEvent.click(screen.getByRole('button', { name: /add service/i }));
     await userEvent.type(screen.getByLabelText('Service name 1'), 'Consultation');
     await userEvent.type(screen.getByLabelText('Price 1'), '50');
     await userEvent.selectOptions(screen.getByLabelText('Currency'), 'EUR');
-    await userEvent.click(screen.getByRole('button', { name: /save profile/i }));
 
-    await waitFor(() =>
-      expect(vi.mocked(updateMyProfile)).toHaveBeenCalledWith(
-        expect.objectContaining({
-          currency: 'EUR',
-          price_items: [{ name: 'Consultation', price_type: 'EXACT', amount_min: 50 }],
-        }),
-        expect.anything(),
-      ),
+    await waitFor(
+      () =>
+        expect(vi.mocked(updateMyProfile)).toHaveBeenCalledWith(
+          expect.objectContaining({
+            currency: 'EUR',
+            price_items: [{ name: 'Consultation', price_type: 'EXACT', amount_min: 50 }],
+          }),
+          expect.anything(),
+        ),
+      { timeout: 2000 },
     );
   });
 
@@ -243,20 +251,22 @@ describe('MyProfilePage', () => {
     renderPage();
     await screen.findByDisplayValue('Alice');
 
+    await userEvent.click(screen.getByRole('tab', { name: /services/i }));
     await userEvent.click(screen.getByRole('button', { name: /add service/i }));
     await userEvent.type(screen.getByLabelText('Service name 1'), 'Full project');
     await userEvent.selectOptions(screen.getByLabelText('Price type 1'), 'RANGE');
     await userEvent.type(screen.getByLabelText('Price from 1'), '500');
     await userEvent.type(screen.getByLabelText('Price to 1'), '1200');
-    await userEvent.click(screen.getByRole('button', { name: /save profile/i }));
 
-    await waitFor(() =>
-      expect(vi.mocked(updateMyProfile)).toHaveBeenCalledWith(
-        expect.objectContaining({
-          price_items: [{ name: 'Full project', price_type: 'RANGE', amount_min: 500, amount_max: 1200 }],
-        }),
-        expect.anything(),
-      ),
+    await waitFor(
+      () =>
+        expect(vi.mocked(updateMyProfile)).toHaveBeenCalledWith(
+          expect.objectContaining({
+            price_items: [{ name: 'Full project', price_type: 'RANGE', amount_min: 500, amount_max: 1200 }],
+          }),
+          expect.anything(),
+        ),
+      { timeout: 2000 },
     );
   });
 
@@ -266,6 +276,7 @@ describe('MyProfilePage', () => {
     renderPage();
     await screen.findByDisplayValue('Alice');
 
+    await userEvent.click(screen.getByRole('tab', { name: /services/i }));
     await userEvent.click(screen.getByRole('button', { name: /add service/i }));
     await userEvent.type(screen.getByLabelText('Service name 1'), 'First');
     await userEvent.type(screen.getByLabelText('Price 1'), '10');
@@ -273,20 +284,21 @@ describe('MyProfilePage', () => {
     await userEvent.type(screen.getByLabelText('Service name 2'), 'Second');
     await userEvent.type(screen.getByLabelText('Price 2'), '20');
 
-    // Move the second row above the first, then save.
+    // Move the second row above the first; auto-save picks up the new order.
     await userEvent.click(screen.getByRole('button', { name: /move service 2 up/i }));
-    await userEvent.click(screen.getByRole('button', { name: /save profile/i }));
 
-    await waitFor(() =>
-      expect(vi.mocked(updateMyProfile)).toHaveBeenCalledWith(
-        expect.objectContaining({
-          price_items: [
-            { name: 'Second', price_type: 'EXACT', amount_min: 20 },
-            { name: 'First', price_type: 'EXACT', amount_min: 10 },
-          ],
-        }),
-        expect.anything(),
-      ),
+    await waitFor(
+      () =>
+        expect(vi.mocked(updateMyProfile)).toHaveBeenCalledWith(
+          expect.objectContaining({
+            price_items: [
+              { name: 'Second', price_type: 'EXACT', amount_min: 20 },
+              { name: 'First', price_type: 'EXACT', amount_min: 10 },
+            ],
+          }),
+          expect.anything(),
+        ),
+      { timeout: 2000 },
     );
   });
 
@@ -295,6 +307,7 @@ describe('MyProfilePage', () => {
     renderPage();
     await screen.findByDisplayValue('Alice');
 
+    await userEvent.click(screen.getByRole('tab', { name: /services/i }));
     expect(screen.queryByLabelText('Service name 1')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /add service/i }));
     expect(screen.getByLabelText('Service name 1')).toBeInTheDocument();
@@ -309,6 +322,7 @@ describe('MyProfilePage', () => {
     await screen.findByDisplayValue('Alice');
 
     // Open the inline editor for the GENERIC link, change both fields, save.
+    await userEvent.click(screen.getByRole('tab', { name: /links/i }));
     await userEvent.click(screen.getByRole('button', { name: /edit website/i }));
     const labelInput = screen.getByLabelText('Edit label');
     const urlInput = screen.getByLabelText('Edit URL');
