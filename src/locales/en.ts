@@ -272,6 +272,13 @@ export const en = {
     addPriceItem: '+ Add service',
     priceInvalid: 'Check the prices — each service needs a valid amount for its price type.',
   },
+  signature: {
+    title: 'Email signature',
+    hint: 'Add your card to every email you send.',
+    copy: 'Copy signature',
+    copied: 'Copied!',
+    paste: 'Paste it into your Gmail or Outlook signature settings.',
+  },
   onboarding: {
     title: 'Complete your card',
     hint: 'The more complete your card, the stronger the impression on everyone who views it.',

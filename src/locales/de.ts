@@ -273,6 +273,13 @@ export const de: Resources = {
     addPriceItem: '+ Leistung hinzufügen',
     priceInvalid: 'Prüfe die Preise — jede Leistung braucht einen gültigen Betrag für ihren Preistyp.',
   },
+  signature: {
+    title: 'E-Mail-Signatur',
+    hint: 'Füge deine Karte zu jeder E-Mail hinzu, die du sendest.',
+    copy: 'Signatur kopieren',
+    copied: 'Kopiert!',
+    paste: 'Füge sie in deine Signatur-Einstellungen in Gmail oder Outlook ein.',
+  },
   onboarding: {
     title: 'Vervollständige deine Karte',
     hint: 'Je vollständiger deine Karte, desto stärker der Eindruck bei allen, die sie sehen.',

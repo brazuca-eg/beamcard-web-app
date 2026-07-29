@@ -11,11 +11,50 @@ import { useMyProfile } from '../features/profile/useMyProfile';
 import { ShareDialog } from '../features/profile/ShareDialog';
 import { buildQrSvg } from '../features/profile/qr';
 import { getMyShowcases } from '../features/profile/showcases';
+import { buildSignatureHtml, buildSignatureText, copySignature } from '../features/profile/emailSignature';
 import { loadQrStyle } from '../features/profile/qrStyle';
 import { ACCENTS, DEFAULT_ACCENT } from '../features/profile/accents';
 import { LANG_FLAGS, SUPPORTED_LANGS, type Lang } from '../i18n';
 
 const PANEL = 'rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70 sm:p-6';
+
+/**
+ * Email-signature generator: a live preview + one-click copy that writes rich HTML to the
+ * clipboard, so the card link pastes formatted into Gmail/Outlook signature settings.
+ */
+function EmailSignature({ profile, url }: { profile: ProfileResponse; url: string }) {
+  const { t } = useTranslation();
+  const accent = ACCENTS[profile.accent_color ?? DEFAULT_ACCENT] ?? ACCENTS[DEFAULT_ACCENT];
+  const [copied, setCopied] = useState(false);
+  const html = useMemo(() => buildSignatureHtml(profile, url, accent.base), [profile, url, accent.base]);
+  const text = useMemo(() => buildSignatureText(profile, url), [profile, url]);
+
+  const onCopy = async () => {
+    if (await copySignature(html, text)) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    }
+  };
+
+  return (
+    <section className={PANEL}>
+      <h2 className="text-base font-semibold text-slate-900">{t('signature.title')}</h2>
+      <p className="mt-0.5 text-xs text-slate-400">{t('signature.hint')}</p>
+      <div
+        className="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-4"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+      <button
+        type="button"
+        onClick={onCopy}
+        className="mt-3 w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+      >
+        {copied ? t('signature.copied') : t('signature.copy')}
+      </button>
+      <p className="mt-2 text-xs text-slate-400">{t('signature.paste')}</p>
+    </section>
+  );
+}
 
 /**
  * Activation nudge: a completion score + checklist derived from the profile so new
@@ -533,8 +572,9 @@ function AccountDetails({ account }: { account: AccountResponse }) {
           </section>
         </div>
 
-        {/* Share / QR — the home for sharing the public card */}
-        <section className={`${PANEL} lg:sticky lg:top-20`}>
+        {/* Share / QR + email signature — the "get your card out there" column */}
+        <div className="space-y-5">
+        <section className={PANEL}>
           <h2 className="text-base font-semibold text-slate-900">{t('editor.shareTitle')}</h2>
           <p className="mt-0.5 text-xs text-slate-400">{t('share.subtitle')}</p>
 
@@ -566,6 +606,8 @@ function AccountDetails({ account }: { account: AccountResponse }) {
             </button>
           </div>
         </section>
+          {profile && <EmailSignature profile={profile} url={cardUrl} />}
+        </div>
       </div>
 
       {shareOpen && (
