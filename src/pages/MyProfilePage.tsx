@@ -18,6 +18,7 @@ import {
   type Currency,
   type LinkResponse,
   type LinkType,
+  type OpeningHours,
   type PriceItem,
   type PriceType,
   type ProfileResponse,
@@ -26,6 +27,7 @@ import { useMyProfile, useProfileMutations } from '../features/profile/useMyProf
 import { mapQuery } from '../features/profile/maps';
 import { WorkplaceMap } from '../features/profile/WorkplaceMap';
 import { ShowcasesEditor } from '../features/profile/ShowcasesEditor';
+import { WorkplaceHoursEditor } from '../features/profile/WorkplaceHoursEditor';
 import { ADD_ROW_BTN, EmptyState, SectionHead, TabIcon, UPLOAD_BTN } from '../features/profile/editorUi';
 import { ACCENTS, ACCENT_ORDER } from '../features/profile/accents';
 import { buildQrSvg } from '../features/profile/qr';
@@ -79,9 +81,10 @@ interface WorkplaceRow {
   organization: string;
   address: string;
   description: string;
+  hours: OpeningHours[];
 }
 
-const EMPTY_ROW: WorkplaceRow = { role: '', organization: '', address: '', description: '' };
+const EMPTY_ROW: WorkplaceRow = { role: '', organization: '', address: '', description: '', hours: [] };
 
 /** API affiliations → editor rows (always at least one row so the form isn't empty). */
 function toRows(affiliations: Affiliation[] | undefined): WorkplaceRow[] {
@@ -91,16 +94,18 @@ function toRows(affiliations: Affiliation[] | undefined): WorkplaceRow[] {
     organization: a.organization ?? '',
     address: a.address ?? '',
     description: a.description ?? '',
+    hours: a.opening_hours ?? [],
   }));
 }
 
-/** Editor rows → API affiliations (the backend drops fully-blank rows). */
+/** Editor rows → API affiliations. Drops incomplete time ranges so auto-save never sends invalid hours. */
 function toAffiliations(rows: WorkplaceRow[]): Affiliation[] {
   return rows.map((r) => ({
     role: r.role,
     organization: r.organization,
     address: r.address,
     description: r.description,
+    opening_hours: r.hours.filter((h) => h.open && h.close && h.close > h.open),
   }));
 }
 
@@ -382,8 +387,11 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayName, bio, phone, country, city, workplaces, activities, currency, priceRows, accent]);
 
-  const updateWorkplace = (index: number, field: keyof WorkplaceRow, value: string) =>
+  const updateWorkplace = (index: number, field: 'role' | 'organization' | 'address' | 'description', value: string) =>
     setWorkplaces((rows) => rows.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
+
+  const setWorkplaceHours = (index: number, hours: OpeningHours[]) =>
+    setWorkplaces((rows) => rows.map((r, i) => (i === index ? { ...r, hours } : r)));
 
   const addWorkplace = () => setWorkplaces((rows) => [...rows, { ...EMPTY_ROW }]);
 
@@ -713,6 +721,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
                 {w.address.trim() && (
                   <WorkplaceMap query={mapQuery({ address: w.address, city, country })} debounceMs={600} />
                 )}
+                <WorkplaceHoursEditor hours={w.hours} onChange={(h) => setWorkplaceHours(i, h)} />
               </div>
             ))}
             <button type="button" onClick={addWorkplace} className={ADD_ROW_BTN}>

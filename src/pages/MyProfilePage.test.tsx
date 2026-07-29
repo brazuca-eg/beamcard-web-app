@@ -161,7 +161,13 @@ describe('MyProfilePage', () => {
           expect.objectContaining({
             location: { country: 'Austria', city: 'Vienna' },
             affiliations: [
-              { role: 'Trainer', organization: 'FitGym', address: 'Stephansplatz 1', description: 'Entrance B' },
+              {
+                role: 'Trainer',
+                organization: 'FitGym',
+                address: 'Stephansplatz 1',
+                description: 'Entrance B',
+                opening_hours: [],
+              },
             ],
           }),
           expect.anything(),

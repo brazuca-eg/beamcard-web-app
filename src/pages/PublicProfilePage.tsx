@@ -13,11 +13,13 @@ import {
   type Currency,
   type LinkResponse,
   type LinkType,
+  type OpeningHours,
   type PriceItem,
   type ProfileResponse,
 } from '../api/profile';
 import { usePublicProfile } from '../features/profile/usePublicProfile';
 import { accentVars } from '../features/profile/accents';
+import { DAY_ORDER, groupByDay, todayKey } from '../features/profile/hours';
 import { SiteFooter } from '../components/SiteFooter';
 import { mapQuery } from '../features/profile/maps';
 import { WorkplaceMap } from '../features/profile/WorkplaceMap';
@@ -431,9 +433,36 @@ function WorkplacesList({ profile, workplaces }: { profile: ProfileResponse; wor
               query={mapQuery({ address: a.address, city: profile.location?.city, country: profile.location?.country })}
             />
           )}
+          <WorkplaceHours hours={a.opening_hours} />
         </li>
       ))}
     </ul>
+  );
+}
+
+/** Read-only weekly hours for one workplace — Monday-first, today highlighted, closed days muted. */
+function WorkplaceHours({ hours }: { hours?: OpeningHours[] }) {
+  const { t } = useTranslation();
+  if (!hours || hours.length === 0) return null;
+  const byDay = groupByDay(hours);
+  const today = todayKey();
+  return (
+    <dl className="mt-3 border-t border-slate-100 pt-3 text-sm">
+      {DAY_ORDER.map((day) => {
+        const ranges = byDay[day];
+        const isToday = day === today;
+        return (
+          <div key={day} className={`flex justify-between gap-4 py-0.5 ${isToday ? 'font-semibold text-slate-900' : ''}`}>
+            <dt className={isToday ? '' : 'text-slate-500'}>{t(`days.${day}`)}</dt>
+            <dd className={ranges.length === 0 ? 'text-slate-400' : 'text-slate-700'}>
+              {ranges.length === 0
+                ? t('publicCard.closed')
+                : ranges.map((r) => `${r.open}–${r.close}`).join(', ')}
+            </dd>
+          </div>
+        );
+      })}
+    </dl>
   );
 }
 

@@ -52,6 +52,23 @@ export interface Location {
   city?: string;
 }
 
+/** Weekday keys as the backend emits them (java.time.DayOfWeek). */
+export type DayOfWeek =
+  | 'MONDAY'
+  | 'TUESDAY'
+  | 'WEDNESDAY'
+  | 'THURSDAY'
+  | 'FRIDAY'
+  | 'SATURDAY'
+  | 'SUNDAY';
+
+/** One opening interval, e.g. { day: 'MONDAY', open: '09:00', close: '13:00' }. */
+export interface OpeningHours {
+  day: DayOfWeek;
+  open: string;
+  close: string;
+}
+
 /** One workplace: a role at an organization + its street address (within the primary city). */
 export interface Affiliation {
   role?: string;
@@ -59,6 +76,8 @@ export interface Affiliation {
   address?: string;
   /** Optional free-text "how to find it" note. */
   description?: string;
+  /** This workplace's weekly opening hours (flat list of intervals; empty = none set). */
+  opening_hours?: OpeningHours[];
 }
 
 /** One uploaded certificate/diploma image; image_url is a public storage URL. */
