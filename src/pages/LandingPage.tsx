@@ -52,8 +52,6 @@ export function LandingPage({ forceShow = false }: { forceShow?: boolean }) {
           {t('nav.accessibility')}
         </Link>
         <span>·</span>
-        <span>{t('landing.footer')}</span>
-        <span>·</span>
         <span>Demo photos: Pexels</span>
       </footer>
     </div>

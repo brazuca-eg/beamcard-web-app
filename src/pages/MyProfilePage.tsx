@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import PhoneInput, { isValidPhoneNumber, type Country } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
@@ -23,11 +23,15 @@ import { useMyProfile, useProfileMutations } from '../features/profile/useMyProf
 import { mapQuery } from '../features/profile/maps';
 import { WorkplaceMap } from '../features/profile/WorkplaceMap';
 import { ShowcasesEditor } from '../features/profile/ShowcasesEditor';
+import { ADD_ROW_BTN, EmptyState, SectionHead, TabIcon, UPLOAD_BTN } from '../features/profile/editorUi';
 import { LINK_PREFIX, VALUE_PLACEHOLDER, composeUrl, hasPrefix, toHandle } from '../features/profile/linkComposer';
 import { countryOptions } from '../features/profile/countries';
 import { currencyOptions, isPriceItemValid } from '../features/profile/currencies';
 
 const PRICE_TYPES: PriceType[] = ['EXACT', 'FROM', 'RANGE'];
+
+/** Debounce before auto-saving the profile block after an edit. */
+const AUTOSAVE_MS = 700;
 
 /** Shared card-panel styling so every editor section reads as a distinct block. */
 const PANEL = 'rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70 sm:p-6';
@@ -45,6 +49,17 @@ const TYPE_LABELS: Record<LinkType, string> = {
 };
 
 const LINK_TYPES = Object.keys(TYPE_LABELS) as LinkType[];
+
+/** Left-nav tabs for the editor — groups the sections so the page isn't one long scroll. */
+const EDITOR_TABS = [
+  { id: 'profile', labelKey: 'editor.tabProfile', icon: 'profile' },
+  { id: 'workplaces', labelKey: 'editor.tabWorkplaces', icon: 'pin' },
+  { id: 'services', labelKey: 'editor.tabServices', icon: 'services' },
+  { id: 'portfolio', labelKey: 'editor.tabPortfolio', icon: 'portfolio' },
+  { id: 'links', labelKey: 'editor.tabLinks', icon: 'link' },
+] as const;
+
+type EditorTabId = (typeof EDITOR_TABS)[number]['id'];
 
 /** Typed links derive their label from the platform; only GENERIC needs a custom one. */
 function labelFor(type: LinkType, custom: string): string {
@@ -195,8 +210,36 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
   const [editLabel, setEditLabel] = useState('');
   const [editUrl, setEditUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const awardInputRef = useRef<HTMLInputElement>(null);
+  const firstRenderRef = useRef(true);
+  const [tab, setTab] = useState<EditorTabId>('profile');
+  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  // Select a tab and keep it in view — centers it in the horizontal strip on mobile so the
+  // active tab is never stuck off-screen; `focus` carries keyboard focus for arrow-key nav.
+  const selectTab = (id: EditorTabId, focus = false) => {
+    setTab(id);
+    const el = tabRefs.current[id];
+    if (el) {
+      el.scrollIntoView({ block: 'nearest', inline: 'center' });
+      if (focus) el.focus();
+    }
+  };
+
+  // Arrow/Home/End move between tabs and carry focus with them (ARIA roving tabindex).
+  const onTabKeyDown = (e: KeyboardEvent) => {
+    const idx = EDITOR_TABS.findIndex((x) => x.id === tab);
+    let next = idx;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (idx + 1) % EDITOR_TABS.length;
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (idx - 1 + EDITOR_TABS.length) % EDITOR_TABS.length;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = EDITOR_TABS.length - 1;
+    else return;
+    e.preventDefault();
+    selectTab(EDITOR_TABS[next].id, true);
+  };
 
   const links = [...profile.links].sort((a, b) => a.position - b.position);
   const awards = [...(profile.awards ?? [])].sort((a, b) => a.position - b.position);
@@ -241,31 +284,43 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
     reorderAwards.mutate(ids);
   };
 
-  const saveProfile = () => {
-    setError(null);
+  // Auto-save the profile block (details / location / workplaces / directions / pricelist + currency).
+  // Debounced so typing doesn't spam the API; invalid phone/prices block the save and surface inline
+  // rather than silently dropping. No Save button — the header status shows the state.
+  useEffect(() => {
+    if (firstRenderRef.current) {
+      firstRenderRef.current = false; // don't save on initial mount (state just seeded from the profile)
+      return;
+    }
     if (phone && !isValidPhoneNumber(phone)) {
-      setError(t('editor.phoneInvalid'));
+      setValidationError(t('editor.phoneInvalid'));
       return;
     }
     const priceItems = priceRows.filter((r) => r.name.trim()).map(rowToPriceItem);
     if (!priceItems.every(isPriceItemValid)) {
-      setError(t('editor.priceInvalid'));
+      setValidationError(t('editor.priceInvalid'));
       return;
     }
-    updateProfile.mutate(
-      {
-        display_name: displayName,
-        bio,
-        phone: phone ?? '', // '' clears it server-side
-        location: { country, city },
-        affiliations: toAffiliations(workplaces),
-        activities: activities.map((a) => a.trim()).filter(Boolean),
-        currency,
-        price_items: priceItems,
-      },
-      { onError: (e) => setError(problemOf(e)?.detail ?? t('editor.saveError')) },
-    );
-  };
+    setValidationError(null);
+
+    const timer = setTimeout(() => {
+      updateProfile.mutate(
+        {
+          display_name: displayName,
+          bio,
+          phone: phone ?? '', // '' clears it server-side
+          location: { country, city },
+          affiliations: toAffiliations(workplaces),
+          activities: activities.map((a) => a.trim()).filter(Boolean),
+          currency,
+          price_items: priceItems,
+        },
+        { onError: (e) => setError(problemOf(e)?.detail ?? t('editor.saveError')) },
+      );
+    }, AUTOSAVE_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayName, bio, phone, country, city, workplaces, activities, currency, priceRows]);
 
   const updateWorkplace = (index: number, field: keyof WorkplaceRow, value: string) =>
     setWorkplaces((rows) => rows.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
@@ -353,15 +408,73 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
   };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5 px-4 pb-16 pt-6">
-      <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{t('editor.title')}</h1>
+    <div className="mx-auto max-w-5xl px-4 pb-16 pt-6">
+      <div className="sticky top-0 z-10 -mx-4 flex items-center justify-between gap-3 border-b border-slate-200/70 bg-slate-50/85 px-4 py-2 backdrop-blur">
+        <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{t('editor.title')}</h1>
+        <span className="shrink-0 text-sm" role="status" aria-live="polite">
+          {validationError ? (
+            <span className="inline-flex items-center gap-1 font-medium text-amber-700">⚠ {validationError}</span>
+          ) : updateProfile.isPending ? (
+            <span className="text-slate-500">{t('editor.saving')}</span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-slate-500">
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                <path d="m5 13 4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              {t('editor.savedAll')}
+            </span>
+          )}
+        </span>
+      </div>
 
       {error && (
-          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-            {error}
-          </p>
-        )}
+        <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+          {error}
+        </p>
+      )}
 
+      <div className="mt-5 md:grid md:grid-cols-[210px_minmax(0,1fr)] md:gap-6">
+        <nav
+          role="tablist"
+          aria-label={t('editor.title')}
+          aria-orientation="vertical"
+          onKeyDown={onTabKeyDown}
+          className="sticky top-12 z-[9] -mx-4 mb-4 flex gap-1 overflow-x-auto bg-slate-50/90 px-4 py-2 backdrop-blur md:top-16 md:mx-0 md:mb-0 md:flex-col md:self-start md:overflow-visible md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none"
+        >
+          {EDITOR_TABS.map((tb) => {
+            const selected = tab === tb.id;
+            return (
+              <button
+                key={tb.id}
+                ref={(el) => {
+                  tabRefs.current[tb.id] = el;
+                }}
+                role="tab"
+                type="button"
+                id={`tab-${tb.id}`}
+                aria-controls={`panel-${tb.id}`}
+                aria-selected={selected}
+                tabIndex={selected ? 0 : -1}
+                onClick={() => selectTab(tb.id)}
+                className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-3 text-sm font-medium transition md:py-2 ${
+                  selected ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <TabIcon name={tb.icon} />
+                {t(tb.labelKey)}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="min-w-0 space-y-5">
+          <div
+            role="tabpanel"
+            id="panel-profile"
+            aria-labelledby="tab-profile"
+            hidden={tab !== 'profile'}
+            className="space-y-5"
+          >
         {/* Avatar + share */}
         <section className={PANEL}>
           <div className="flex items-center gap-4">
@@ -391,7 +504,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploadAvatar.isPending}
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50 disabled:opacity-50"
+                className={UPLOAD_BTN}
               >
                 {uploadAvatar.isPending
                   ? t('editor.uploading')
@@ -416,10 +529,9 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
 
         {/* Profile details */}
         <section className={PANEL}>
-          <h2 className="text-base font-semibold text-slate-900">{t('editor.details')}</h2>
-          <p className="mt-0.5 text-xs text-slate-400">{t('editor.detailsHint')}</p>
+          <SectionHead icon="profile" title={t('editor.details')} hint={t('editor.detailsHint')} />
 
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2">
             <label className="block text-sm font-medium text-slate-700 sm:col-span-2">
               {t('editor.displayName')}
               <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className={`mt-1 ${INPUT}`} />
@@ -481,12 +593,19 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
             </fieldset>
           </div>
         </section>
+          </div>
 
+          <div
+            role="tabpanel"
+            id="panel-workplaces"
+            aria-labelledby="tab-workplaces"
+            hidden={tab !== 'workplaces'}
+            className="space-y-5"
+          >
         {/* Workplaces */}
         <section className={PANEL}>
-          <fieldset className="space-y-3">
-            <legend className="text-base font-semibold text-slate-900">{t('editor.workplaces')}</legend>
-            <p className="text-xs text-slate-400">{t('editor.workplacesHint')}</p>
+          <SectionHead icon="pin" title={t('editor.workplaces')} hint={t('editor.workplacesHint')} />
+          <div className="space-y-3">
             {workplaces.map((w, i) => (
               <div key={i} className="space-y-2 rounded-xl border border-slate-200 p-3">
                 <div className="flex items-center justify-between">
@@ -536,21 +655,24 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
                 )}
               </div>
             ))}
-            <button
-              type="button"
-              onClick={addWorkplace}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50"
-            >
+            <button type="button" onClick={addWorkplace} className={ADD_ROW_BTN}>
               {t('editor.addWorkplace')}
             </button>
-          </fieldset>
+          </div>
         </section>
+          </div>
 
+          <div
+            role="tabpanel"
+            id="panel-services"
+            aria-labelledby="tab-services"
+            hidden={tab !== 'services'}
+            className="space-y-5"
+          >
         {/* Main directions */}
         <section className={PANEL}>
-          <fieldset className="space-y-3">
-            <legend className="text-base font-semibold text-slate-900">{t('editor.activities')}</legend>
-            <p className="text-xs text-slate-400">{t('editor.activitiesHint')}</p>
+          <SectionHead icon="services" title={t('editor.activities')} hint={t('editor.activitiesHint')} />
+          <div className="space-y-3">
             {activities.map((a, i) => (
               <div key={i} className="flex items-center gap-2">
                 <input
@@ -571,22 +693,16 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
                 </button>
               </div>
             ))}
-            <button
-              type="button"
-              onClick={addActivity}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50"
-            >
+            <button type="button" onClick={addActivity} className={ADD_ROW_BTN}>
               {t('editor.addActivity')}
             </button>
-          </fieldset>
+          </div>
         </section>
 
         {/* Price list */}
         <section className={PANEL}>
-          <fieldset className="space-y-3">
-            <legend className="text-base font-semibold text-slate-900">{t('editor.pricelist')}</legend>
-            <p className="text-xs text-slate-400">{t('editor.pricelistHint')}</p>
-
+          <SectionHead icon="tag" title={t('editor.pricelist')} hint={t('editor.pricelistHint')} />
+          <div className="space-y-3">
             <label className="block text-sm font-medium text-slate-700 sm:max-w-xs">
               {t('editor.currency')}
               <select
@@ -602,6 +718,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
               </select>
             </label>
 
+            {priceRows.length === 0 && <EmptyState icon="tag" text={t('editor.noPriceItems')} />}
             {priceRows.map((row, i) => (
               <div key={i} className="space-y-2 rounded-xl border border-slate-200 p-3">
                 <div className="flex items-center justify-between">
@@ -691,35 +808,28 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
                 </div>
               </div>
             ))}
-            <button
-              type="button"
-              onClick={addPriceRow}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50"
-            >
+            <button type="button" onClick={addPriceRow} className={ADD_ROW_BTN}>
               {t('editor.addPriceItem')}
             </button>
-          </fieldset>
+          </div>
         </section>
+          </div>
 
-        {/* Save (covers the profile/location/workplaces/directions above) */}
-        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end">
-          <p className="text-xs text-slate-400 sm:mr-auto">{t('editor.saveScopeHint')}</p>
-          <button
-            onClick={saveProfile}
-            disabled={updateProfile.isPending}
-            className="w-full rounded-lg bg-indigo-600 px-5 py-2.5 font-medium text-white shadow-sm transition hover:bg-indigo-700 active:scale-[.99] disabled:opacity-50 sm:w-auto"
+          <div
+            role="tabpanel"
+            id="panel-portfolio"
+            aria-labelledby="tab-portfolio"
+            hidden={tab !== 'portfolio'}
+            className="space-y-5"
           >
-            {updateProfile.isPending ? t('editor.savingProfile') : t('editor.saveProfile')}
-          </button>
-        </div>
-
         {/* Certificates */}
         <section className={PANEL}>
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="text-base font-semibold text-slate-900">{t('editor.certificates')}</h2>
-            <AutoSavedBadge />
-          </div>
-          {awards.length === 0 && <p className="mb-3 text-sm text-slate-400">{t('editor.noCertificates')}</p>}
+          <SectionHead icon="portfolio" title={t('editor.certificates')} aside={<AutoSavedBadge />} />
+          {awards.length === 0 && (
+            <div className="mb-3">
+              <EmptyState icon="portfolio" text={t('editor.noCertificates')} />
+            </div>
+          )}
           {awards.length > 0 && (
             <ul className="mb-4 space-y-2">
               {awards.map((award, i) => (
@@ -792,26 +902,35 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
             type="button"
             onClick={() => awardInputRef.current?.click()}
             disabled={uploadAward.isPending}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50 disabled:opacity-50"
+            className={UPLOAD_BTN}
           >
             {uploadAward.isPending ? t('editor.uploading') : t('editor.addCertificate')}
           </button>
           <p className="mt-2 text-xs text-slate-400">{t('editor.certHint')}</p>
         </section>
 
-        {/* Showcases (own editor + own save button) */}
+        {/* Showcases (self-contained editor, auto-saves) */}
         <section className={PANEL}>
           <ShowcasesEditor />
         </section>
+          </div>
 
+          <div
+            role="tabpanel"
+            id="panel-links"
+            aria-labelledby="tab-links"
+            hidden={tab !== 'links'}
+            className="space-y-5"
+          >
         {/* Links */}
         <section className={PANEL}>
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="text-base font-semibold text-slate-900">{t('editor.links')}</h2>
-            <AutoSavedBadge />
-          </div>
+          <SectionHead icon="link" title={t('editor.links')} aside={<AutoSavedBadge />} />
+          {links.length === 0 && (
+            <div className="mb-4">
+              <EmptyState icon="link" text={t('editor.noLinks')} />
+            </div>
+          )}
           <ul className="mb-6 space-y-2">
-            {links.length === 0 && <li className="text-sm text-slate-400">{t('editor.noLinks')}</li>}
             {links.map((link, i) =>
               editingId === link.id ? (
                 <li key={link.id} className="space-y-2 rounded-md border border-indigo-300 px-3 py-2">
@@ -952,12 +1071,15 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
             <button
               onClick={addLink}
               disabled={createLink.isPending || !canAdd}
-              className="rounded-md bg-slate-800 px-4 py-2 font-medium text-white hover:bg-slate-900 disabled:opacity-50"
+              className="rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
             >
               {createLink.isPending ? t('editor.addingLink') : t('editor.addLinkButton')}
             </button>
           </div>
         </section>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

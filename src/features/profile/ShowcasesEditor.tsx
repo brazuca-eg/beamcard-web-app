@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { problemOf } from '../../api/problem';
 import { useAuthStore } from '../../stores/authStore';
+import { ADD_ROW_BTN, EmptyState, SectionHead, UPLOAD_BTN } from './editorUi';
 import {
   getMyShowcases,
   saveShowcases,
@@ -13,6 +14,7 @@ import {
 } from './showcases';
 
 const MAX_STEPS = 5; // mirrors the backend limit (profile-service rejects > 5 steps per showcase)
+const AUTOSAVE_MS = 700;
 
 /** Loads the owner's showcases, then mounts the editor form seeded from them. */
 export function ShowcasesEditor() {
@@ -43,15 +45,32 @@ function ShowcasesForm({ initial }: { initial: Showcase[] }) {
   const [showcases, setShowcases] = useState<Showcase[]>(initial);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const firstRenderRef = useRef(true);
 
   const save = useMutation({
     mutationFn: () => saveShowcases(showcases),
-    onSuccess: (saved) => {
-      setShowcases(saved);
-      void queryClient.invalidateQueries({ queryKey: ['showcases', 'me'] });
-    },
+    // Don't re-seed local state from the response: with auto-save firing while the
+    // user is still typing, setShowcases(saved) would clobber in-progress edits.
+    // Blob previews stay valid for the session; a reload hydrates the CDN urls.
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['showcases', 'me'] }),
     onError: (e) => setError(problemOf(e)?.detail ?? t('editor.showcaseSaveError')),
   });
+  const saveRef = useRef(save);
+  saveRef.current = save;
+
+  // Auto-save: debounce writes so a burst of edits collapses into one request.
+  useEffect(() => {
+    if (firstRenderRef.current) {
+      firstRenderRef.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      setError(null);
+      saveRef.current.mutate();
+    }, AUTOSAVE_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showcases]);
 
   const patchShowcase = (i: number, patch: Partial<Showcase>) =>
     setShowcases((list) => list.map((sc, idx) => (idx === i ? { ...sc, ...patch } : sc)));
@@ -87,9 +106,17 @@ function ShowcasesForm({ initial }: { initial: Showcase[] }) {
   };
 
   return (
-    <section className="mb-8">
-      <h2 className="text-lg font-semibold text-slate-900 mb-1">{t('editor.showcases')}</h2>
-      <p className="text-xs text-slate-400 mb-3">{t('editor.showcasesHint')}</p>
+    <section>
+      <SectionHead
+        icon="image"
+        title={t('editor.showcases')}
+        hint={t('editor.showcasesHint')}
+        aside={
+          <span className="text-xs text-slate-400" role="status" aria-live="polite">
+            {save.isPending ? t('editor.saving') : t('editor.savedAll')}
+          </span>
+        }
+      />
 
       {error && (
         <p className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
@@ -97,7 +124,11 @@ function ShowcasesForm({ initial }: { initial: Showcase[] }) {
         </p>
       )}
 
-      {showcases.length === 0 && <p className="text-sm text-slate-400 mb-3">{t('editor.noShowcases')}</p>}
+      {showcases.length === 0 && (
+        <div className="mb-3">
+          <EmptyState icon="image" text={t('editor.noShowcases')} />
+        </div>
+      )}
 
       <div className="space-y-4">
         {showcases.map((sc, i) => (
@@ -202,7 +233,7 @@ function ShowcasesForm({ initial }: { initial: Showcase[] }) {
 
             <div className="flex items-center gap-3">
               {sc.steps.length < MAX_STEPS && (
-                <label className="inline-block cursor-pointer py-1.5 px-3 text-sm border border-slate-300 rounded-md hover:bg-slate-50">
+                <label className={`cursor-pointer ${UPLOAD_BTN}`}>
                   {uploading ? t('editor.uploading') : t('editor.addStep')}
                   <input
                     type="file"
@@ -229,20 +260,9 @@ function ShowcasesForm({ initial }: { initial: Showcase[] }) {
         <button
           type="button"
           onClick={() => setShowcases((list) => [...list, { title: '', intro: '', steps: [] }])}
-          className="py-1.5 px-3 text-sm border border-slate-300 rounded-md hover:bg-slate-50"
+          className={ADD_ROW_BTN}
         >
           {t('editor.addShowcase')}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setError(null);
-            save.mutate();
-          }}
-          disabled={save.isPending}
-          className="py-2 px-4 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50"
-        >
-          {save.isPending ? t('editor.savingProfile') : t('editor.saveShowcases')}
         </button>
       </div>
     </section>
