@@ -1,14 +1,17 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../stores/authStore';
 import { changePassword, deleteAccount, updateAccount, type AccountResponse } from '../api/auth';
-import { deleteMyProfile, getMyProfile, getMyProfileQr, publicCardUrl } from '../api/profile';
+import { deleteMyProfile, getMyProfile, publicCardUrl } from '../api/profile';
 import { problemOf } from '../api/problem';
 import { useCurrentAccount } from '../features/auth/useCurrentAccount';
 import { useMyProfile } from '../features/profile/useMyProfile';
 import { ShareDialog } from '../features/profile/ShareDialog';
+import { buildQrSvg } from '../features/profile/qr';
+import { loadQrStyle } from '../features/profile/qrStyle';
+import { ACCENTS, DEFAULT_ACCENT } from '../features/profile/accents';
 import { LANG_FLAGS, SUPPORTED_LANGS, type Lang } from '../i18n';
 
 const PANEL = 'rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70 sm:p-6';
@@ -66,7 +69,22 @@ function AccountDetails({ account }: { account: AccountResponse }) {
   const cardUrl = publicCardUrl(account.username);
   const displayName = profile?.display_name?.trim() || `@${account.username}`;
 
-  const qr = useQuery({ queryKey: ['profile', 'qr'], queryFn: getMyProfileQr });
+  // QR is generated client-side from the card URL + accent + the owner's saved QR style
+  // (localStorage) — no backend round-trip, and it stays in sync with the chosen theme.
+  const qrStyle = loadQrStyle();
+  const qrSvg = useMemo(
+    () =>
+      buildQrSvg(cardUrl, {
+        accent: profile?.accent_color,
+        colorMode: qrStyle.colorMode,
+        moduleStyle: qrStyle.moduleStyle,
+        logo: qrStyle.logo,
+      }),
+    [cardUrl, profile?.accent_color, qrStyle.colorMode, qrStyle.moduleStyle, qrStyle.logo],
+  );
+  // The avatar represents the user's card, so it takes the accent (matching the public
+  // card + QR). App controls stay Beamcard indigo — accent = your card, indigo = the app.
+  const accent = ACCENTS[profile?.accent_color ?? DEFAULT_ACCENT] ?? ACCENTS[DEFAULT_ACCENT];
 
   const memberSince = new Date(account.created_at).toLocaleDateString(i18n.language, {
     year: 'numeric',
@@ -178,7 +196,10 @@ function AccountDetails({ account }: { account: AccountResponse }) {
                   className="h-20 w-20 rounded-full border border-slate-200 object-cover"
                 />
               ) : (
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-indigo-100 text-2xl font-semibold text-indigo-600">
+                <div
+                  className="flex h-20 w-20 items-center justify-center rounded-full text-2xl font-semibold"
+                  style={{ backgroundColor: accent.soft, color: accent.base }}
+                >
                   {displayName.replace(/^@/, '').charAt(0).toUpperCase()}
                 </div>
               )}
@@ -441,15 +462,13 @@ function AccountDetails({ account }: { account: AccountResponse }) {
           <p className="mt-0.5 text-xs text-slate-400">{t('share.subtitle')}</p>
 
           <div className="mx-auto mt-4 flex aspect-square w-full max-w-[220px] items-center justify-center rounded-xl border border-slate-200 bg-white p-3">
-            {qr.data ? (
+            {qrSvg ? (
               <div
                 className="h-full w-full [&>svg]:h-full [&>svg]:w-full"
-                dangerouslySetInnerHTML={{ __html: qr.data }}
+                dangerouslySetInnerHTML={{ __html: qrSvg }}
               />
             ) : (
-              <span className="text-sm text-slate-400">
-                {qr.isLoading ? t('share.generating') : t('share.unavailable')}
-              </span>
+              <span className="text-sm text-slate-400">{t('share.unavailable')}</span>
             )}
           </div>
 
@@ -476,8 +495,8 @@ function AccountDetails({ account }: { account: AccountResponse }) {
         <ShareDialog
           username={account.username}
           url={cardUrl}
-          qrSvg={qr.data}
-          isLoading={qr.isLoading}
+          qrSvg={qrSvg}
+          isLoading={false}
           onClose={() => setShareOpen(false)}
         />
       )}

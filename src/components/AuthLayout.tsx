@@ -1,6 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import { MarketingHeader } from './MarketingHeader';
-import { MarketingFooter } from './MarketingFooter';
+import { SiteFooter } from './SiteFooter';
 
 /** Chrome for the public auth pages (login, signup, forgot/reset password). */
 export function AuthLayout() {
@@ -10,7 +10,7 @@ export function AuthLayout() {
       <main className="flex-1">
         <Outlet />
       </main>
-      <MarketingFooter />
+      <SiteFooter />
     </div>
   );
 }

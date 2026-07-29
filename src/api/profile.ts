@@ -27,6 +27,9 @@ export interface LinkResponse {
 /** The single currency chosen for the whole profile's price list. */
 export type Currency = 'USD' | 'EUR' | 'UAH';
 
+/** Preset accent color for the public card (must match the backend AccentColor enum). */
+export type AccentColor = 'INDIGO' | 'VIOLET' | 'BLUE' | 'TEAL' | 'EMERALD' | 'AMBER' | 'ROSE' | 'SLATE';
+
 /**
  * How a service is priced:
  * EXACT/FROM use only amount_min; RANGE uses both amount_min and amount_max.
@@ -82,6 +85,8 @@ export interface ProfileResponse {
   currency?: Currency;
   /** Price list — services with names and prices, ordered. */
   price_items?: PriceItem[];
+  /** Accent color for the public card; defaults to INDIGO server-side. */
+  accent_color?: AccentColor;
   avatar_url?: string;
   created_at: string;
   updated_at: string;
@@ -102,6 +107,7 @@ export interface UpdateProfileRequest {
   activities?: string[];
   currency?: Currency;
   price_items?: PriceItem[];
+  accent_color?: AccentColor;
 }
 
 /**

@@ -1,6 +1,7 @@
 import { Link, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { MarketingHeader } from '../components/MarketingHeader';
+import { SiteFooter } from '../components/SiteFooter';
 import { useAuthStore } from '../stores/authStore';
 
 /**
@@ -35,25 +36,7 @@ export function LandingPage({ forceShow = false }: { forceShow?: boolean }) {
       <Steps />
       <FinalCta />
 
-      <footer className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 border-t border-slate-100 px-4 py-8 text-center text-xs text-slate-400">
-        <Link to="/privacy" className="text-slate-500 hover:text-slate-900 hover:underline">
-          {t('nav.privacy')}
-        </Link>
-        <span>·</span>
-        <Link to="/terms" className="text-slate-500 hover:text-slate-900 hover:underline">
-          {t('nav.terms')}
-        </Link>
-        <span>·</span>
-        <Link to="/cookies" className="text-slate-500 hover:text-slate-900 hover:underline">
-          {t('nav.cookies')}
-        </Link>
-        <span>·</span>
-        <Link to="/accessibility" className="text-slate-500 hover:text-slate-900 hover:underline">
-          {t('nav.accessibility')}
-        </Link>
-        <span>·</span>
-        <span>Demo photos: Pexels</span>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

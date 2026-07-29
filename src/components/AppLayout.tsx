@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/authStore';
 import { logout as logoutApi } from '../api/auth';
 import { useCurrentAccount } from '../features/auth/useCurrentAccount';
 import { EmailVerificationBanner } from './EmailVerificationBanner';
+import { SiteFooter } from './SiteFooter';
 
 /**
  * Chrome for the signed-in app (Account + Editor): a consistent branded header
@@ -87,27 +88,7 @@ export function AppLayout() {
         <Outlet />
       </main>
 
-      <footer className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 border-t border-slate-200/70 px-4 py-6 text-center text-xs text-slate-400">
-        <Link to="/about" className="text-slate-500 hover:text-slate-900 hover:underline">
-          {t('nav.about')}
-        </Link>
-        <span>·</span>
-        <Link to="/privacy" className="text-slate-500 hover:text-slate-900 hover:underline">
-          {t('nav.privacy')}
-        </Link>
-        <span>·</span>
-        <Link to="/terms" className="text-slate-500 hover:text-slate-900 hover:underline">
-          {t('nav.terms')}
-        </Link>
-        <span>·</span>
-        <Link to="/cookies" className="text-slate-500 hover:text-slate-900 hover:underline">
-          {t('nav.cookies')}
-        </Link>
-        <span>·</span>
-        <Link to="/accessibility" className="text-slate-500 hover:text-slate-900 hover:underline">
-          {t('nav.accessibility')}
-        </Link>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
