@@ -1,5 +1,7 @@
-import { Link, Navigate } from 'react-router-dom';
+import { useState, type FormEvent } from 'react';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { sanitizeHandle } from '../features/auth/handle';
 import { MarketingHeader } from '../components/MarketingHeader';
 import { SiteFooter } from '../components/SiteFooter';
 import { useAuthStore } from '../stores/authStore';
@@ -43,6 +45,15 @@ export function LandingPage({ forceShow = false }: { forceShow?: boolean }) {
 
 function Hero() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [handle, setHandle] = useState('');
+
+  const claim = (e: FormEvent) => {
+    e.preventDefault();
+    // Deep-link into signup with the chosen handle pre-filled (the proven link-in-bio hook).
+    navigate(handle ? `/signup?u=${encodeURIComponent(handle)}` : '/signup');
+  };
+
   return (
     <section className="bg-gradient-to-b from-indigo-50/60 to-white">
       <div className="mx-auto grid max-w-5xl items-center gap-10 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-2">
@@ -53,20 +64,39 @@ function Hero() {
           <p className="mx-auto mt-4 max-w-xl text-lg leading-relaxed text-slate-600 lg:mx-0">
             {t('landing.heroSubtitle')}
           </p>
-          <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row lg:justify-start">
-            <Link
-              to="/signup"
-              className="w-full rounded-xl bg-indigo-600 px-6 py-3 text-center font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:scale-[.99] sm:w-auto"
+
+          <form onSubmit={claim} className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-stretch">
+            <div className="flex flex-1 items-stretch overflow-hidden rounded-xl border border-slate-300 bg-white transition focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100">
+              <span className="flex items-center pl-4 pr-0.5 text-lg font-medium text-slate-400">@</span>
+              <input
+                value={handle}
+                onChange={(e) => setHandle(sanitizeHandle(e.target.value))}
+                placeholder={t('landing.claimPlaceholder')}
+                aria-label={t('landing.claimAria')}
+                autoComplete="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                maxLength={20}
+                className="min-w-0 flex-1 bg-transparent py-3 pr-4 text-lg text-slate-900 outline-none placeholder:text-slate-400"
+              />
+            </div>
+            <button
+              type="submit"
+              className="shrink-0 rounded-xl bg-indigo-600 px-6 py-3 font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:scale-[.99]"
             >
-              {t('landing.heroCta')}
-            </Link>
-            <a
-              href="#how"
-              className="w-full rounded-xl border border-slate-200 px-6 py-3 text-center font-semibold text-slate-700 transition hover:bg-slate-50 sm:w-auto"
-            >
-              {t('landing.heroSecondary')}
-            </a>
-          </div>
+              {t('landing.claimCta')}
+            </button>
+          </form>
+          <p className="mt-2.5 text-sm text-slate-500">
+            beamcard.app/@
+            <span className="font-semibold text-slate-700">{handle || t('landing.claimPlaceholder')}</span>
+          </p>
+          <a
+            href="#how"
+            className="mt-3 inline-block text-sm font-medium text-slate-500 transition hover:text-slate-900"
+          >
+            {t('landing.heroSecondary')}
+          </a>
         </div>
         <div className="flex justify-center lg:justify-end">
           <MockCard />
