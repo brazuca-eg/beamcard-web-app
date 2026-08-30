@@ -47,6 +47,9 @@ export function formatAmount(amount: number, currency: Currency, lang: string): 
  */
 export function isPriceItemValid(item: PriceItem): boolean {
   if (!item.name.trim()) return false;
+  // Duration is required (5–1440 min) — every service is bookable.
+  const d = item.duration_minutes;
+  if (typeof d !== 'number' || d < 5 || d > 1440) return false;
   const { price_type, amount_min, amount_max } = item;
   const hasMin = typeof amount_min === 'number' && amount_min > 0;
   const hasMax = typeof amount_max === 'number' && amount_max > 0;

@@ -20,6 +20,17 @@ export const ACCENT_ORDER: AccentColor[] = ['INDIGO', 'VIOLET', 'BLUE', 'TEAL', 
 
 export const DEFAULT_ACCENT: AccentColor = 'INDIGO';
 
+/**
+ * Distinct, high-contrast hues for distinguishing workplaces (calendar bands, weekly
+ * overview). Ordered so the first few are maximally different (blue → orange → teal → pink),
+ * unlike the accent ramp where INDIGO/VIOLET are near-identical. Independent of the card accent.
+ */
+export const WORKPLACE_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#e87ba4', '#7c3aed', '#eda100', '#008300', '#e34948'];
+
+export function workplaceColor(index: number): string {
+  return WORKPLACE_COLORS[index % WORKPLACE_COLORS.length];
+}
+
 /** CSS custom properties for a chosen accent — spread onto a container's `style`. */
 export function accentVars(accent: AccentColor | undefined): Record<string, string> {
   const c = ACCENTS[accent ?? DEFAULT_ACCENT] ?? ACCENTS[DEFAULT_ACCENT];

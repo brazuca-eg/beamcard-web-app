@@ -18,6 +18,7 @@ import { AccessibilityPage } from './pages/AccessibilityPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AppLayout } from './components/AppLayout';
 import { AuthLayout } from './components/AuthLayout';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import './i18n';
 import './index.css';
 
@@ -32,6 +33,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <ErrorBoundary>
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/about" element={<LandingPage forceShow />} />
@@ -59,6 +61,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/:handle" element={<PublicProfilePage />} />
           <Route path="*" element={<Navigate to="/app" replace />} />
         </Routes>
+        </ErrorBoundary>
       </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,

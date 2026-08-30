@@ -28,6 +28,8 @@ import { mapQuery } from '../features/profile/maps';
 import { WorkplaceMap } from '../features/profile/WorkplaceMap';
 import { ShowcasesEditor } from '../features/profile/ShowcasesEditor';
 import { WorkplaceHoursEditor } from '../features/profile/WorkplaceHoursEditor';
+import { WeekScheduleOverview } from '../features/profile/WeekScheduleOverview';
+import { overlappingHoursDay } from '../features/profile/hours';
 import { ADD_ROW_BTN, EmptyState, SectionHead, TabIcon, UPLOAD_BTN } from '../features/profile/editorUi';
 import { ACCENTS, ACCENT_ORDER } from '../features/profile/accents';
 import { buildQrSvg } from '../features/profile/qr';
@@ -120,9 +122,12 @@ interface PriceRow {
   priceType: PriceType;
   min: string;
   max: string;
+  duration: string; // minutes, required — makes the service bookable
 }
 
-const EMPTY_PRICE_ROW: PriceRow = { name: '', priceType: 'EXACT', min: '', max: '' };
+const DEFAULT_DURATION = '60';
+
+const EMPTY_PRICE_ROW: PriceRow = { name: '', priceType: 'EXACT', min: '', max: '', duration: DEFAULT_DURATION };
 
 /** API price items → editor rows (empty when none — the price list is optional). */
 function toPriceRows(items: PriceItem[] | undefined): PriceRow[] {
@@ -132,12 +137,19 @@ function toPriceRows(items: PriceItem[] | undefined): PriceRow[] {
     priceType: i.price_type,
     min: i.amount_min != null ? String(i.amount_min) : '',
     max: i.amount_max != null ? String(i.amount_max) : '',
+    // Legacy items without a duration default to 60 so they satisfy the now-required field.
+    duration: i.duration_minutes != null ? String(i.duration_minutes) : DEFAULT_DURATION,
   }));
 }
 
 /** One editor row → API price item, keeping only the amount(s) its type uses. */
 function rowToPriceItem(row: PriceRow): PriceItem {
-  const item: PriceItem = { name: row.name.trim(), price_type: row.priceType };
+  const duration = parseInt(row.duration, 10);
+  const item: PriceItem = {
+    name: row.name.trim(),
+    price_type: row.priceType,
+    duration_minutes: Number.isFinite(duration) ? duration : 60,
+  };
   if (row.priceType === 'RANGE') {
     item.amount_min = parseFloat(row.min);
     item.amount_max = parseFloat(row.max);
@@ -365,6 +377,14 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
       setValidationError(t('editor.priceInvalid'));
       return;
     }
+    // One person can't be in two places at once: reject hours that overlap on the same
+    // weekday, across all workplaces (mirrors the server guard, but caught before save).
+    const validHours = workplaces.flatMap((w) => w.hours.filter((h) => h.open && h.close && h.close > h.open));
+    const clashDay = overlappingHoursDay(validHours);
+    if (clashDay) {
+      setValidationError(t('editor.hoursOverlap', { day: t(`days.${clashDay}`) }));
+      return;
+    }
     setValidationError(null);
 
     const timer = setTimeout(() => {
@@ -380,7 +400,11 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
           price_items: priceItems,
           accent_color: accent,
         },
-        { onError: (e) => setError(problemOf(e)?.detail ?? t('editor.saveError')) },
+        {
+          onError: (e) => {
+            setError(problemOf(e)?.detail ?? t('editor.saveError'));
+          },
+        },
       );
     }, AUTOSAVE_MS);
     return () => clearTimeout(timer);
@@ -673,6 +697,14 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
         {/* Workplaces */}
         <section className={PANEL}>
           <SectionHead icon="pin" title={t('editor.workplaces')} hint={t('editor.workplacesHint')} />
+          <div className="mb-4">
+            <WeekScheduleOverview
+              workplaces={workplaces.map((w) => ({
+                label: [w.role, w.organization].map((s) => s.trim()).filter(Boolean).join(' · ') || w.address.trim(),
+                hours: w.hours,
+              }))}
+            />
+          </div>
           <div className="space-y-3">
             {workplaces.map((w, i) => (
               <div key={i} className="space-y-2 rounded-xl border border-slate-200 p-3">
@@ -875,6 +907,21 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
                     />
                   )}
                 </div>
+                <label className="flex items-center gap-2 text-sm text-slate-600">
+                  <span className="shrink-0">{t('editor.priceDuration')}</span>
+                  <input
+                    type="number"
+                    min="5"
+                    max="1440"
+                    step="5"
+                    inputMode="numeric"
+                    aria-label={t('editor.priceDurationAria', { n: i + 1 })}
+                    value={row.duration}
+                    onChange={(e) => updatePriceRow(i, 'duration', e.target.value)}
+                    className={`w-24 ${INPUT}`}
+                  />
+                  <span className="shrink-0 text-slate-400">{t('editor.priceDurationUnit')}</span>
+                </label>
               </div>
             ))}
             <button type="button" onClick={addPriceRow} className={ADD_ROW_BTN}>

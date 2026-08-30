@@ -44,6 +44,8 @@ export interface PriceItem {
   amount_min?: number;
   /** The upper bound — RANGE only. */
   amount_max?: number;
+  /** Session length in minutes — set makes the service bookable. */
+  duration_minutes?: number;
 }
 
 /** The profile's primary location (country + city); omitted when none is set. */

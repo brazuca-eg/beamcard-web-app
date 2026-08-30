@@ -119,7 +119,13 @@ function Card({ profile }: { profile: ProfileResponse }) {
             : 'mx-auto w-full max-w-md'
         }
       >
-        <IdentityPanel profile={profile} name={name} socials={socials} customLinks={customLinks} sticky={hasContent} />
+        <IdentityPanel
+          profile={profile}
+          name={name}
+          socials={socials}
+          customLinks={customLinks}
+          sticky={hasContent}
+        />
 
         {hasContent && (
           <div className="space-y-4">
@@ -394,8 +400,16 @@ function ActivitiesCard({ activities }: { activities: string[] }) {
   );
 }
 
-/** The price list: service name on the left, formatted price on the right. */
-function PricelistList({ items, currency, lang }: { items: PriceItem[]; currency: Currency; lang: string }) {
+/** The price list: service name (with optional duration) on the left, formatted price on the right. */
+function PricelistList({
+  items,
+  currency,
+  lang,
+}: {
+  items: PriceItem[];
+  currency: Currency;
+  lang: string;
+}) {
   const { t } = useTranslation();
   const fmt = (n: number | undefined) => formatAmount(n ?? 0, currency, lang);
   const priceLabel = (item: PriceItem): string => {
@@ -411,9 +425,16 @@ function PricelistList({ items, currency, lang }: { items: PriceItem[]; currency
   return (
     <ul className="divide-y divide-slate-100">
       {items.map((item, i) => (
-        <li key={i} className="flex items-baseline justify-between gap-4 py-2.5 first:pt-0 last:pb-0">
-          <span className="min-w-0 break-words text-sm text-slate-700">{item.name}</span>
-          <span className="shrink-0 whitespace-nowrap text-sm font-semibold text-slate-900">{priceLabel(item)}</span>
+        <li key={i} className="flex items-center justify-between gap-4 py-2.5 first:pt-0 last:pb-0">
+          <span className="min-w-0 break-words text-sm text-slate-700">
+            {item.name}
+            {(item.duration_minutes ?? 0) > 0 && (
+              <span className="ml-2 whitespace-nowrap text-xs text-slate-400">
+                {t('publicCard.minutes', { count: item.duration_minutes })}
+              </span>
+            )}
+          </span>
+          <span className="whitespace-nowrap text-sm font-semibold text-slate-900">{priceLabel(item)}</span>
         </li>
       ))}
     </ul>

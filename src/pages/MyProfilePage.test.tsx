@@ -243,7 +243,7 @@ describe('MyProfilePage', () => {
         expect(vi.mocked(updateMyProfile)).toHaveBeenCalledWith(
           expect.objectContaining({
             currency: 'EUR',
-            price_items: [{ name: 'Consultation', price_type: 'EXACT', amount_min: 50 }],
+            price_items: [{ name: 'Consultation', price_type: 'EXACT', duration_minutes: 60, amount_min: 50 }],
           }),
           expect.anything(),
         ),
@@ -268,7 +268,9 @@ describe('MyProfilePage', () => {
       () =>
         expect(vi.mocked(updateMyProfile)).toHaveBeenCalledWith(
           expect.objectContaining({
-            price_items: [{ name: 'Full project', price_type: 'RANGE', amount_min: 500, amount_max: 1200 }],
+            price_items: [
+              { name: 'Full project', price_type: 'RANGE', duration_minutes: 60, amount_min: 500, amount_max: 1200 },
+            ],
           }),
           expect.anything(),
         ),
@@ -298,8 +300,8 @@ describe('MyProfilePage', () => {
         expect(vi.mocked(updateMyProfile)).toHaveBeenCalledWith(
           expect.objectContaining({
             price_items: [
-              { name: 'Second', price_type: 'EXACT', amount_min: 20 },
-              { name: 'First', price_type: 'EXACT', amount_min: 10 },
+              { name: 'Second', price_type: 'EXACT', duration_minutes: 60, amount_min: 20 },
+              { name: 'First', price_type: 'EXACT', duration_minutes: 60, amount_min: 10 },
             ],
           }),
           expect.anything(),
